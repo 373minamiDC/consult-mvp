@@ -37,7 +37,10 @@ const view = { scale: 1, tx: 0, ty: 0 };
 const MIN_SCALE = 0.3, MAX_SCALE = 6;
 
 function applyView() {
-  ctx.setTransform(view.scale, 0, 0, view.scale, view.tx, view.ty);
+  // ★ DPR補正とview変換を毎回まとめて適用
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);              // ピクセル座標に1:1
+  ctx.transform(view.scale, 0, 0, view.scale, view.tx, view.ty); // そこからview
 }
 function screenToLogical(pt) {
   // 画面座標(px) → 論理座標（view逆変換）
@@ -60,26 +63,22 @@ function setCanvasSize() {
   const w = Math.max(1, Math.floor(rect.width  * dpr));
   const h = Math.max(1, Math.floor(rect.height * dpr));
   if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w; canvas.height = h;
-    ctx.setTransform(dpr,0,0,dpr,0,0); // 一旦DPR補正
-    // 論理→画面は view に任せるので redraw 内で再設定
-    redraw();
+    canvas.width = w; 
+    canvas.height = h;
   }
+  redraw();
 }
 new ResizeObserver(setCanvasSize).observe(document.getElementById('wrap'));
 window.addEventListener('resize', setCanvasSize);
 
 // ------ レンダリング ------
 function redraw() {
-  // まずDPR初期化（1:1）して全消去
+  // 完全リセット→消去
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // 論理→画面の変換を適用
+  // DPR + view を適用
   applyView();
-
-  // ここで背景画像を敷くなら drawImage をこの座標系で
-  // ctx.drawImage(bgImg, 0, 0);
 
   // 既存ストローク
   for (const s of strokes) drawStroke(s);
@@ -172,13 +171,10 @@ canvas.addEventListener('pointermove', (e) => {
     let s = s0 * (dist / pinchStart.dist);
     s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 
-    // 中点を固定する補正:
-    // mid(画面) が pinchStart.mid と同じ論理点を指し続けるように tx,ty を調整
-    // 論理座標で固定したい点 L を求める
+    // 中点を固定する補正
     const Lx = (pinchStart.mid.x - pinchStart.view.tx) / pinchStart.view.scale;
     const Ly = (pinchStart.mid.y - pinchStart.view.ty) / pinchStart.view.scale;
 
-    // その L が新しいスケールでも mid の画面位置に来るように tx,ty を設定
     view.scale = s;
     view.tx = mid.x - Lx * s;
     view.ty = mid.y - Ly * s;
@@ -191,7 +187,7 @@ canvas.addEventListener('pointerup', (e) => {
   e.preventDefault();
   const wasDrawing = drawing;
   if (drawing && current && pointers.size === 1) {
-    // 1本指描画の終了
+    // 1本指描画の終了（確定保存）
     const pt = pointers.get(e.pointerId);
     if (pt) current.points.push(screenToLogical(pt));
     strokes.push(current);
