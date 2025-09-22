@@ -3,108 +3,177 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Consult MVP Canvas</title>
+<title>コンサル資料キット（iPad対応MVP）</title>
 <style>
-  html,body { height:100%; margin:0; background:#fff; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; }
-  #wrap { height:100%; display:flex; flex-direction:column; }
-  #toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px; border-bottom:1px solid #e5e7eb; background:#f8f9fb; position:sticky; top:0; z-index:2 }
-  #toolbar button, #toolbar label { appearance:none; border:1px solid #e5e7eb; background:#fff; border-radius:10px; padding:8px 10px; font-size:14px; cursor:pointer }
-  #toolbar button.active { outline:2px solid #2563eb; outline-offset:-2px }
-  #canvasPane { position:relative; flex:1; min-height:0 }
-  canvas { position:absolute; inset:0; display:block; width:100%; height:100%; touch-action:none; background:#fff }
-  #hint{position:absolute;right:10px;bottom:10px;background:#0008;color:#fff;padding:6px 10px;border-radius:8px;font-size:12px}
-  .hidden-input { display:none; }
+  :root { --bg:#f7f8fa; --panel:#ffffff; --line:#e5e7eb; --hover:#f0f3f8; --accent:#2563eb; }
+  html,body { height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:#1f2937; }
+  #wrap { display:flex; height:100%; }
+
+  /* 左サイドバー */
+  #sidebar {
+    width:320px; max-width:40vw; min-width:260px;
+    background:var(--panel); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; gap:14px; padding:14px; box-sizing:border-box;
+  }
+  #sidebar h2 { font-size:14px; margin:0 0 6px; color:#374151; }
+  .section { padding:10px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+  .row { display:flex; gap:8px; }
+  .full { width:100%; }
+  .muted { color:#6b7280; font-size:12px; margin-top:6px; }
+
+  /* 操作系 */
+  button, label.as-btn, select, input[type=text] {
+    font-size:14px; border:1px solid var(--line); border-radius:10px; background:#fff; color:#111827;
+    padding:8px 10px; box-sizing:border-box; cursor:pointer;
+  }
+  button:hover, label.as-btn:hover { background:var(--hover); }
+  button.active { outline:2px solid var(--accent); outline-offset:-2px; }
+  input[type=file] { display:none; }
+  input[type=text] { width:100%; }
+
+  /* 右側キャンバス */
+  #main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  #canvasPane { flex:1; position:relative; margin:12px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+  canvas { position:absolute; inset:0; width:100%; height:100%; display:block; background:#fff; touch-action:none; }
+  #hint { position:absolute; right:10px; bottom:10px; background:#0007; color:#fff; font-size:12px; padding:6px 8px; border-radius:8px; }
+
+  /* 小さめ画面のときサイドバーを上に */
+  @media (max-width: 900px) {
+    #wrap { flex-direction:column; }
+    #sidebar { width:auto; max-width:none; border-right:none; border-bottom:1px solid var(--line); }
+    #canvasPane { margin:10px; height:calc(100vh - 280px); }
+  }
 </style>
 </head>
 <body>
 <div id="wrap">
-  <div id="toolbar">
-    <button id="penBtn" class="active">ペン</button>
-    <button id="hlBtn">蛍光</button>
-    <button id="selectBtn" title="画像/QRを動かす・サイズ変更">選択</button>
 
-    <label title="背景（下敷き）を読み込み">
-      <input id="bgInput" type="file" accept="image/*" class="hidden-input">画像読込（背景）
-    </label>
-    <label title="画面上に貼る画像スタンプを追加">
-      <input id="stampInput" type="file" accept="image/*" class="hidden-input">スタンプ追加
-    </label>
-    <button id="qrBtn" title="URLからQRを生成してスタンプとして追加">QR追加</button>
-    <button id="fitBtn" title="背景を画面にフィット">画像フィット</button>
-    <button id="resetViewBtn">表示リセット</button>
+  <!-- 左サイドバー -->
+  <aside id="sidebar">
+    <div class="section">
+      <h2>患者情報</h2>
+      <div class="row">
+        <input id="ptName" class="full" type="text" placeholder="患者名（任意）">
+      </div>
+      <div class="row" style="margin-top:6px">
+        <input id="ptId" class="full" type="text" placeholder="ID / 診察券番号（任意）">
+      </div>
+      <div class="muted">※ 表示や保存には影響しません（将来の自動記載用プレースホルダ）</div>
+    </div>
 
-    <button id="undoBtn">元に戻す</button>
-    <button id="clearPenBtn" title="手描きのみ消去">手描きクリア</button>
-    <button id="clearAllBtn" title="全部消去（背景も含む）">全消去</button>
-    <button id="saveBtn">PNG保存</button>
-  </div>
+    <div class="section">
+      <h2>描画ツール</h2>
+      <div class="row">
+        <button id="penBtn" class="full active">ペン</button>
+        <button id="hlBtn" class="full">蛍光</button>
+        <button id="selectBtn" class="full" title="画像/QRの移動・サイズ変更">選択</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button id="undoBtn" class="full">元に戻す</button>
+        <button id="clearPenBtn" class="full" title="手描きのみクリア">描画クリア</button>
+      </div>
+      <div class="muted">1本指:描く/選択　2本指:パン&ズーム</div>
+    </div>
 
-  <div id="canvasPane">
-    <canvas id="c"></canvas>
-    <div id="hint">1本指:描く/選択　2本指:パン&ズーム　枠の右下ハンドル:サイズ変更</div>
-  </div>
+    <div class="section">
+      <h2>画像・QR</h2>
+      <label class="as-btn full"><input id="bgInput" type="file" accept="image/*">背景画像を読み込む</label>
+      <label class="as-btn full"><input id="stampInput" type="file" accept="image/*">スタンプ画像を追加</label>
+      <button id="qrBtn" class="full" title="URLやテキストからQR生成">QRを追加</button>
+      <div class="row" style="margin-top:6px">
+        <button id="fitBtn" class="full" title="背景を画面にフィット">背景フィット</button>
+        <button id="resetViewBtn" class="full" title="拡大縮小・移動をリセット">表示リセット</button>
+      </div>
+      <button id="clearAllBtn" class="full" style="margin-top:6px" title="背景/スタンプ/描画すべて消去">全消去</button>
+    </div>
+
+    <div class="section">
+      <h2>出力</h2>
+      <button id="saveBtn" class="full">PNGとして保存</button>
+      <div class="muted">※ iPadでは「プリント→ピンチで拡大→共有」でPDF化も可能</div>
+    </div>
+  </aside>
+
+  <!-- 右側キャンバス -->
+  <main id="main">
+    <div id="canvasPane">
+      <canvas id="c"></canvas>
+      <div id="hint">1本指:描く/選択　2本指:パン&ズーム　右下ハンドル:サイズ変更</div>
+    </div>
+  </main>
+
 </div>
 
 <script>
-/* ========= 基本セットアップ ========= */
+/* =========================
+   1) 基本セットアップ
+========================= */
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d', { alpha:true, desynchronized:true });
 const pane = document.getElementById('canvasPane');
 
 let tool = 'pen'; // 'pen' | 'hl' | 'select'
-let lineWidth = 3;
+let lineWidthPen = 3;
+let lineWidthHL  = 16;
 
-/* ========= 論理モデル ========= */
-// 手描き（ストローク）
-const strokes = []; // [{mode,width,points:[{x,y}]}]
+/* =========================
+   2) 論理モデル
+========================= */
+// 手描き（論理座標に保存）
+const strokes = []; // [{mode:'pen'|'hl', width:number, points:[{x,y}]}]
 let drawing = false;
 let current = null;
 
 // 背景（下敷き）
-let bgImg = null;          // Image
-let bgSize = { w:0, h:0 }; // 論理座標サイズ
+let bgImg = null;                // HTMLImageElement
+let bgSize = { w:0, h:0 };       // 論理サイズ
 
-// 貼り付けオブジェクト（画像スタンプ/QR）
-/* item: { type:'stamp'|'qr', img:HTMLImageElement, x,y,w,h }  (論理座標) */
+// オブジェクト（画像スタンプ／QR）
+/* item: { type:'stamp'|'qr', img:HTMLImageElement, x,y,w,h }  ※論理座標 */
 const items = [];
 let selectedIdx = -1;
-const HANDLE_SIZE = 12; // 論理座標上のハンドル半径（見え方はズームに追随）
+const HANDLE_SIZE = 12;          // 論理座標上のハンドルサイズ
 
-// ビュー（パン/ズーム）
+// ビュー（パン＆ズーム）
 const view = { scale:1, tx:0, ty:0 };
 const MIN_SCALE = 0.3, MAX_SCALE = 6;
 
-/* ========= DPR & サイズ ========= */
+/* =========================
+   3) DPRとキャンバスサイズ
+========================= */
 function setCanvasSize() {
   const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  const w = Math.max(1, Math.floor(rect.width * dpr));
-  const h = Math.max(1, Math.floor(rect.height * dpr));
+  const r = canvas.getBoundingClientRect();
+  const w = Math.max(1, Math.floor(r.width * dpr));
+  const h = Math.max(1, Math.floor(r.height * dpr));
   if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w; 
-    canvas.height = h;
+    canvas.width = w; canvas.height = h;
   }
   redraw();
 }
 new ResizeObserver(setCanvasSize).observe(pane);
-window.addEventListener('resize', setCanvasSize, {passive:true});
+window.addEventListener('resize', setCanvasSize, { passive:true });
 
-/* ========= 座標変換 ========= */
+/* =========================
+   4) 座標変換
+========================= */
 function applyView() {
   const dpr = window.devicePixelRatio || 1;
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.transform(view.scale,0,0,view.scale,view.tx,view.ty);
+  ctx.setTransform(dpr,0,0,dpr,0,0);             // まずピクセル座標へ1:1
+  ctx.transform(view.scale,0,0,view.scale,view.tx,view.ty); // そこからビュー適用
 }
-function screenToLogical(pt){ return { x:(pt.x - view.tx)/view.scale, y:(pt.y - view.ty)/view.scale }; }
-function logicalToScreen(pt){ return { x:pt.x*view.scale + view.tx, y:pt.y*view.scale + view.ty }; }
+function screenToLogical(pt) { return { x:(pt.x - view.tx)/view.scale, y:(pt.y - view.ty)/view.scale }; }
+function logicalToScreen(pt) { return { x:pt.x*view.scale + view.tx, y:pt.y*view.scale + view.ty }; }
 
-/* ========= レンダリング ========= */
-function clearAll() {
+/* =========================
+   5) レンダリング
+========================= */
+function clearDevice() {
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
 }
 function redraw() {
-  clearAll();
+  clearDevice();
   applyView();
 
   // 背景
@@ -112,7 +181,7 @@ function redraw() {
     ctx.drawImage(bgImg, 0, 0, bgSize.w, bgSize.h);
   }
 
-  // スタンプ/QR
+  // オブジェクト（スタンプ/QR）
   for (let i=0;i<items.length;i++) drawItem(items[i], i===selectedIdx);
 
   // 手描き
@@ -121,28 +190,19 @@ function redraw() {
 }
 
 function drawStroke(s) {
-  const pts = s.points;
-  if (!pts || pts.length < 2) return;
-
+  if (!s.points || s.points.length < 2) return;
   ctx.save();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.miterLimit = 2;
-
   if (s.mode === 'pen') {
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.strokeStyle = '#111';
+    ctx.globalAlpha = 1.0; ctx.strokeStyle = '#111'; ctx.lineWidth = s.width ?? lineWidthPen;
   } else {
-    ctx.globalAlpha = 0.28;
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.strokeStyle = '#ffd600';
+    ctx.globalAlpha = 0.28; ctx.strokeStyle = '#ffd600'; ctx.lineWidth = s.width ?? lineWidthHL;
   }
-  ctx.lineWidth = s.width ?? 3;
-
   ctx.beginPath();
-  ctx.moveTo(pts[0].x, pts[0].y);
-  for (let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.moveTo(s.points[0].x, s.points[0].y);
+  for (let i=1;i<s.points.length;i++) ctx.lineTo(s.points[i].x, s.points[i].y);
   ctx.stroke();
   ctx.restore();
 }
@@ -150,26 +210,23 @@ function drawStroke(s) {
 function drawItem(it, selected) {
   ctx.drawImage(it.img, it.x, it.y, it.w, it.h);
   if (!selected) return;
-
-  // 選択枠とハンドル
+  // 選択枠＆ハンドル
   ctx.save();
   ctx.strokeStyle = '#2563eb';
-  ctx.lineWidth = 1 / view.scale; // ズームしても見やすく
+  ctx.lineWidth = 1 / view.scale;
   ctx.setLineDash([4 / view.scale, 3 / view.scale]);
   ctx.strokeRect(it.x, it.y, it.w, it.h);
   ctx.setLineDash([]);
-
-  // ハンドル（右下）
-  const r = HANDLE_SIZE / 2;
-  const cx = it.x + it.w, cy = it.y + it.h;
+  const r = HANDLE_SIZE/2;
+  const hx = it.x + it.w, hy = it.y + it.h;
   ctx.fillStyle = '#2563eb';
-  ctx.beginPath();
-  ctx.rect(cx - r, cy - r, HANDLE_SIZE, HANDLE_SIZE);
-  ctx.fill();
+  ctx.fillRect(hx - r, hy - r, HANDLE_SIZE, HANDLE_SIZE);
   ctx.restore();
 }
 
-/* ========= 背景＆スタンプ＆QR ========= */
+/* =========================
+   6) 背景・スタンプ・QR
+========================= */
 document.getElementById('bgInput').addEventListener('change', (ev)=>{
   const file = ev.target.files?.[0];
   if (!file) return;
@@ -177,8 +234,7 @@ document.getElementById('bgInput').addEventListener('change', (ev)=>{
   const img = new Image();
   img.onload = ()=>{
     bgImg = img;
-    bgSize.w = img.naturalWidth;
-    bgSize.h = img.naturalHeight;
+    bgSize.w = img.naturalWidth; bgSize.h = img.naturalHeight;
     fitImageToView();
     URL.revokeObjectURL(url);
   };
@@ -191,11 +247,11 @@ document.getElementById('stampInput').addEventListener('change', (ev)=>{
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = ()=>{
-    const logicalW = Math.min(600, img.naturalWidth); // 初期幅を抑える
-    const scale = logicalW / img.naturalWidth;
-    const logicalH = img.naturalHeight * scale;
-    const center = screenToLogical({x: canvas.getBoundingClientRect().width/2, y: canvas.getBoundingClientRect().height/2});
-    items.push({ type:'stamp', img, x:center.x - logicalW/2, y:center.y - logicalH/2, w:logicalW, h:logicalH });
+    const initW = Math.min(600, img.naturalWidth);
+    const scale = initW / img.naturalWidth;
+    const initH = img.naturalHeight * scale;
+    const center = screenToLogical(centerOfCanvas());
+    items.push({ type:'stamp', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH });
     selectedIdx = items.length - 1;
     redraw();
     URL.revokeObjectURL(url);
@@ -203,19 +259,17 @@ document.getElementById('stampInput').addEventListener('change', (ev)=>{
   img.src = url;
 });
 
-document.getElementById('qrBtn').addEventListener('click', async ()=>{
-  const data = prompt('QRにするURLまたはテキストを入力してください：', 'https://minami-dentalclinic.com');
+document.getElementById('qrBtn').addEventListener('click', ()=>{
+  const data = prompt('QRにするURLまたはテキスト：', 'https://minami-dentalclinic.com');
   if (!data) return;
-  // 外部APIからPNGを取得（ブラウザ側でOK）
   const size = 512;
   const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
   const img = new Image();
   img.crossOrigin = 'anonymous';
   img.onload = ()=>{
-    const logicalW = 240; // 初期サイズ（論理）
-    const logicalH = 240;
-    const center = screenToLogical({x: canvas.getBoundingClientRect().width/2, y: canvas.getBoundingClientRect().height/2});
-    items.push({ type:'qr', img, x:center.x - logicalW/2, y:center.y - logicalH/2, w:logicalW, h:logicalH });
+    const initW = 240, initH = 240;
+    const center = screenToLogical(centerOfCanvas());
+    items.push({ type:'qr', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH });
     selectedIdx = items.length - 1;
     redraw();
   };
@@ -223,31 +277,51 @@ document.getElementById('qrBtn').addEventListener('click', async ()=>{
   img.src = src;
 });
 
-/* 背景フィット */
+function centerOfCanvas() {
+  const r = canvas.getBoundingClientRect();
+  return { x:r.width/2, y:r.height/2 };
+}
+
 function fitImageToView() {
   if (!bgImg) return;
   const r = canvas.getBoundingClientRect();
   const cssW = r.width, cssH = r.height;
-  const sx = cssW / bgSize.w;
-  const sy = cssH / bgSize.h;
+  const sx = cssW / bgSize.w, sy = cssH / bgSize.h;
   const s = Math.min(sx, sy);
   view.scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
-  const screenImgW = bgSize.w * view.scale;
-  const screenImgH = bgSize.h * view.scale;
-  view.tx = (cssW - screenImgW)/2;
-  view.ty = (cssH - screenImgH)/2;
+  const screenW = bgSize.w * view.scale, screenH = bgSize.h * view.scale;
+  view.tx = (cssW - screenW)/2;
+  view.ty = (cssH - screenH)/2;
   redraw();
 }
+document.getElementById('fitBtn').onclick = fitImageToView;
 
-/* ========= 入力（描画／選択／パンピンチ） ========= */
-const pointers = new Map(); // id -> {x,y}
-function getEventPoint(e) {
-  const r = canvas.getBoundingClientRect();
-  return { x: e.clientX - r.left, y: e.clientY - r.top };
+/* =========================
+   7) 入力：描画／選択／パン・ピンチ
+========================= */
+const pointers = new Map();          // id -> {x,y}
+let pinchStart = null;               // {mid, dist, view}
+let dragState = null;                // {kind:'move'|'resize', idx, start:{x,y}, itemStart:{x,y,w,h}}
+
+function getEventPoint(e) { const r = canvas.getBoundingClientRect(); return { x:e.clientX - r.left, y:e.clientY - r.top }; }
+function twoFingerInfo() {
+  const arr = Array.from(pointers.values());
+  const p0 = arr[0], p1 = arr[1];
+  const mid = { x:(p0.x+p1.x)/2, y:(p0.y+p1.y)/2 };
+  const dist = Math.hypot(p1.x-p0.x, p1.y-p0.y);
+  return { mid, dist };
 }
-
-let pinchStart = null; // {mid,dist,view}
-let dragState = null;  // 選択モード時 {kind:'move'|'resize', idx, start:{x,y}, itemStart:{x,y,w,h}}
+function hitTestItem(L) {
+  for (let i=items.length-1;i>=0;i--) {
+    const it = items[i];
+    const inBody = (L.x>=it.x && L.x<=it.x+it.w && L.y>=it.y && L.y<=it.y+it.h);
+    const hx = it.x + it.w, hy = it.y + it.h;
+    const inHandle = (L.x>=hx-HANDLE_SIZE/2 && L.x<=hx+HANDLE_SIZE/2 && L.y>=hy-HANDLE_SIZE/2 && L.y<=hy+HANDLE_SIZE/2);
+    if (inHandle) return { kind:'handle', idx:i };
+    if (inBody) return { kind:'body', idx:i };
+  }
+  return { kind:'none', idx:-1 };
+}
 
 canvas.addEventListener('pointerdown', (e)=>{
   e.preventDefault();
@@ -261,17 +335,15 @@ canvas.addEventListener('pointerdown', (e)=>{
     if (pointers.size === 1) {
       if (hit.kind === 'handle') {
         selectedIdx = hit.idx;
-        dragState = { kind:'resize', idx:selectedIdx, start:L, itemStart: { ...items[selectedIdx] } };
+        dragState = { kind:'resize', idx:selectedIdx, start:L, itemStart:{ ...items[selectedIdx] } };
       } else if (hit.kind === 'body') {
         selectedIdx = hit.idx;
-        dragState = { kind:'move', idx:selectedIdx, start:L, itemStart: { ...items[selectedIdx] } };
+        dragState = { kind:'move', idx:selectedIdx, start:L, itemStart:{ ...items[selectedIdx] } };
       } else {
-        // 何も選ばれてなければ通常の描画に切り替え可能
-        selectedIdx = -1;
+        selectedIdx = -1; dragState = null;
       }
       redraw();
     }
-    // 2本指→キャンバス ピンチ/パン
     if (pointers.size === 2) {
       const { mid, dist } = twoFingerInfo();
       pinchStart = { mid, dist, view:{...view} };
@@ -279,17 +351,16 @@ canvas.addEventListener('pointerdown', (e)=>{
     return;
   }
 
-  // 描画モード（pen/hl）
+  // 描画（pen/hl）
   if (pointers.size === 1) {
     drawing = true;
-    current = { mode:tool, width:(tool==='pen'?3:16), points:[ screenToLogical(pt) ] };
+    current = { mode:tool, width:(tool==='pen'?lineWidthPen:lineWidthHL), points:[ screenToLogical(pt) ] };
   } else if (pointers.size === 2) {
-    // ピンチ開始
     const { mid, dist } = twoFingerInfo();
     pinchStart = { mid, dist, view:{...view} };
   }
   redraw();
-},{passive:false});
+}, { passive:false });
 
 canvas.addEventListener('pointermove', (e)=>{
   if (!pointers.has(e.pointerId)) return;
@@ -301,33 +372,25 @@ canvas.addEventListener('pointermove', (e)=>{
       const L = screenToLogical(pointers.get(e.pointerId));
       const it = items[selectedIdx];
       if (dragState.kind === 'move') {
-        const dx = L.x - dragState.start.x;
-        const dy = L.y - dragState.start.y;
-        it.x = dragState.itemStart.x + dx;
-        it.y = dragState.itemStart.y + dy;
+        const dx = L.x - dragState.start.x, dy = L.y - dragState.start.y;
+        it.x = dragState.itemStart.x + dx; it.y = dragState.itemStart.y + dy;
       } else if (dragState.kind === 'resize') {
-        let dw = L.x - dragState.start.x;
-        let dh = L.y - dragState.start.y;
+        const dw = L.x - dragState.start.x, dh = L.y - dragState.start.y;
         it.w = Math.max(20, dragState.itemStart.w + dw);
         it.h = Math.max(20, dragState.itemStart.h + dh);
       }
-      redraw();
-      return;
+      redraw(); return;
     }
     if (pointers.size === 2) {
-      // キャンバスのピンチ/パン
       const { mid, dist } = twoFingerInfo();
-      const base = pinchStart?.view ?? view;
       if (!pinchStart) return;
+      const base = pinchStart.view;
       let s = base.scale * (dist / pinchStart.dist);
       s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
       const Lx = (pinchStart.mid.x - base.tx) / base.scale;
       const Ly = (pinchStart.mid.y - base.ty) / base.scale;
-      view.scale = s;
-      view.tx = mid.x - Lx * s;
-      view.ty = mid.y - Ly * s;
-      redraw();
-      return;
+      view.scale = s; view.tx = mid.x - Lx * s; view.ty = mid.y - Ly * s;
+      redraw(); return;
     }
     return;
   }
@@ -343,12 +406,10 @@ canvas.addEventListener('pointermove', (e)=>{
     s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
     const Lx = (pinchStart.mid.x - base.tx) / base.scale;
     const Ly = (pinchStart.mid.y - base.ty) / base.scale;
-    view.scale = s;
-    view.tx = mid.x - Lx * s;
-    view.ty = mid.y - Ly * s;
+    view.scale = s; view.tx = mid.x - Lx * s; view.ty = mid.y - Ly * s;
     redraw();
   }
-},{passive:false});
+}, { passive:false });
 
 canvas.addEventListener('pointerup', (e)=>{
   e.preventDefault();
@@ -370,76 +431,46 @@ canvas.addEventListener('pointerup', (e)=>{
   pointers.delete(e.pointerId);
   if (pointers.size < 2) pinchStart = null;
   redraw();
-},{passive:false});
+}, { passive:false });
 
 canvas.addEventListener('pointercancel', (e)=>{
   e.preventDefault();
-  drawing = false; current = null;
-  dragState = null;
+  drawing = false; current = null; dragState = null;
   pointers.delete(e.pointerId);
   if (pointers.size < 2) pinchStart = null;
   redraw();
-},{passive:false});
+}, { passive:false });
 
-/* ピンチ補助 */
-function twoFingerInfo() {
-  const arr = Array.from(pointers.values());
-  const p0 = arr[0], p1 = arr[1];
-  const mid = { x:(p0.x+p1.x)/2, y:(p0.y+p1.y)/2 };
-  const dist = Math.hypot(p1.x-p0.x, p1.y-p0.y);
-  return { mid, dist };
-}
-
-/* ヒットテスト（選択） */
-function hitTestItem(L) {
-  // 上にあるもの（末尾）からヒット
-  for (let i=items.length-1;i>=0;i--) {
-    const it = items[i];
-    const inBody = (L.x>=it.x && L.x<=it.x+it.w && L.y>=it.y && L.y<=it.y+it.h);
-    const hx = it.x + it.w, hy = it.y + it.h;
-    const inHandle = (L.x>=hx-HANDLE_SIZE/2 && L.x<=hx+HANDLE_SIZE/2 && L.y>=hy-HANDLE_SIZE/2 && L.y<=hy+HANDLE_SIZE/2);
-    if (inHandle) return { kind:'handle', idx:i };
-    if (inBody) return { kind:'body', idx:i };
-  }
-  return { kind:'none', idx:-1 };
-}
-
-/* ========= ツールバー ========= */
+/* =========================
+   8) ツールバー動作
+========================= */
 const btns = {
-  pen: document.getElementById('penBtn'),
-  hl: document.getElementById('hlBtn'),
-  sel: document.getElementById('selectBtn'),
+  pen : document.getElementById('penBtn'),
+  hl  : document.getElementById('hlBtn'),
+  sel : document.getElementById('selectBtn')
 };
-
-function setTool(next){
+function setTool(next) {
   tool = next;
   btns.pen.classList.toggle('active', tool==='pen');
-  btns.hl.classList.toggle('active', tool==='hl');
+  btns.hl .classList.toggle('active', tool==='hl');
   btns.sel.classList.toggle('active', tool==='select');
-  // 選択解除（選択モード以外に移る時）
   if (tool!=='select') { selectedIdx = -1; dragState=null; redraw(); }
 }
-
 btns.pen.onclick = ()=> setTool('pen');
 btns.hl.onclick  = ()=> setTool('hl');
 btns.sel.onclick = ()=> setTool('select');
 
-document.getElementById('fitBtn').onclick = fitImageToView;
-document.getElementById('resetViewBtn').onclick = ()=>{ view.scale=1; view.tx=0; view.ty=0; redraw(); };
-
 document.getElementById('undoBtn').onclick = ()=>{
-  // 直近の操作：手描き or スタンプ追加をざっくり取り消し（簡易実装）
   if (current) { current=null; drawing=false; redraw(); return; }
-  if (strokes.length > 0) { strokes.pop(); redraw(); return; }
-  if (items.length > 0) { items.pop(); selectedIdx=-1; redraw(); return; }
+  if (strokes.length>0) { strokes.pop(); redraw(); return; }
+  if (items.length>0) { items.pop(); selectedIdx=-1; redraw(); return; }
 };
-
-document.getElementById('clearPenBtn').onclick = ()=>{ strokes.length=0; redraw(); };
+document.getElementById('clearPenBtn').onclick = ()=> { strokes.length=0; redraw(); };
 document.getElementById('clearAllBtn').onclick = ()=>{
-  if (!confirm('背景やスタンプも含めて全て消去しますか？')) return;
+  if (!confirm('背景/スタンプ/描画をすべて消去します。よろしいですか？')) return;
   strokes.length=0; items.length=0; selectedIdx=-1; bgImg=null; bgSize={w:0,h:0}; redraw();
 };
-
+document.getElementById('resetViewBtn').onclick = ()=> { view.scale=1; view.tx=0; view.ty=0; redraw(); };
 document.getElementById('saveBtn').onclick = ()=>{
   const a = document.createElement('a');
   a.download = `consult_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.png`;
@@ -447,7 +478,9 @@ document.getElementById('saveBtn').onclick = ()=>{
   a.click();
 };
 
-/* ========= 初期化 ========= */
+/* =========================
+   9) 初期化
+========================= */
 function init(){ setCanvasSize(); redraw(); }
 init();
 </script>
