@@ -1,373 +1,229 @@
 <!doctype html>
-<html lang="ja">
+<html>
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>コンサル資料キット（iPad対応MVP）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <style>
-  :root { --bg:#0b1020; --panel:#121a33; --ink:#e7ecff; --muted:#9aa7d7; --accent:#7aa2ff; }
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}
-  .wrap{display:grid;grid-template-columns:290px 1fr;grid-template-rows:auto 1fr auto;gap:10px;height:100%;padding:10px;box-sizing:border-box}
-  header,footer,.panel{background:var(--panel);border:1px solid rgba(255,255,255,.06);border-radius:14px}
-  header,footer{padding:10px 14px;display:flex;align-items:center;gap:10px}
-  header{grid-column:1/3}
-  footer{grid-column:1/3;justify-content:space-between}
-  .panel{padding:10px}
-  .left{display:flex;flex-direction:column;gap:10px;overflow:auto}
-  .toolbtn{background:#1b254a;border:1px solid rgba(255,255,255,.08);color:var(--ink);padding:10px 12px;border-radius:12px;cursor:pointer;font-size:14px}
-  .toolbtn[disabled]{opacity:.5}
-  .section{margin-bottom:10px}
-  .section h3{margin:10px 0 6px 0;font-size:14px;color:var(--muted);font-weight:600}
-  .row{display:flex;gap:8px;flex-wrap:wrap}
-  input[type="text"],input[type="url"],select{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:#0e1530;color:var(--ink)}
-  label{font-size:12px;color:var(--muted)}
-  .canvas-wrap{position:relative;background:#0e1530;border:1px dashed rgba(255,255,255,.15);border-radius:14px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-  canvas{touch-action:none;background:#0b0f25}
-  .floating-tip{position:absolute;bottom:8px;left:8px;font-size:12px;color:var(--muted);background:rgba(0,0,0,.35);padding:6px 8px;border-radius:8px}
-  .chips{display:flex;gap:6px;flex-wrap:wrap}
-  .chip{background:#0e1530;border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:6px 10px;font-size:12px;color:var(--muted);cursor:pointer}
-  .chip.active{background:#1b254a;color:var(--ink)}
-  .legend{font-size:12px;color:var(--muted)}
-  .small{font-size:12px}
+  html,body { height:100%; margin:0; }
+  #wrap { height:100%; display:flex; flex-direction:column; }
+  #toolbar { padding:8px; gap:8px; display:flex; align-items:center; border-bottom:1px solid #ddd; }
+  canvas { flex:1; display:block; background:#fff; touch-action: none; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <strong>コンサル資料キット（iPad対応MVP）</strong>
-    <span class="legend">画像読み込み → 注釈 → QR配置 → PNG出力（iPadは共有→プリントでPDF化可）</span>
-  </header>
-
-  <aside class="panel left">
-    <div class="section">
-      <h3>患者情報</h3>
-      <label>患者ID / 診察券番号</label>
-      <input id="patientId" type="text" placeholder="例: 001234" />
-      <label>患者名（任意・資料出力に表示）</label>
-      <input id="patientName" type="text" placeholder="例: 佐藤 太郎" />
-    </div>
-
-    <div class="section">
-      <h3>画像操作</h3>
-      <div class="row">
-        <input id="fileInput" type="file" accept="image/*" />
-        <button class="toolbtn" id="btnLoadDemo" type="button">デモ画像</button>
-      </div>
-      <div class="chips" id="toolMode">
-        <div class="chip active" data-mode="pen">ペン</div>
-        <div class="chip" data-mode="highlighter">蛍光ペン</div>
-        <div class="chip" data-mode="move">移動</div>
-        <div class="chip" data-mode="text">テキスト</div>
-        <div class="chip" data-mode="qr">QR</div>
-      </div>
-      <div class="row">
-        <label>線の太さ</label>
-        <input id="stroke" type="range" min="1" max="20" value="6" />
-        <label>文字サイズ</label>
-        <input id="fontsize" type="range" min="10" max="60" value="22" />
-      </div>
-      <div class="row">
-        <button class="toolbtn" id="btnUndo" type="button">元に戻す</button>
-        <button class="toolbtn" id="btnClear" type="button">注釈クリア</button>
-      </div>
-    </div>
-
-    <div class="section">
-      <h3>治療説明リンク（QR生成）</h3>
-      <label>説明テンプレ（QRに使うURL）</label>
-      <select id="presetUrl">
-        <option value="">— 選択してください —</option>
-        <option value="https://example.com/education/denture">入れ歯（総義歯/部分義歯）</option>
-        <option value="https://example.com/education/implant">インプラント</option>
-        <option value="https://example.com/education/bridge">ブリッジ</option>
-        <option value="https://example.com/education/crown">クラウン（保険/自費）</option>
-        <option value="https://example.com/education/whitening">ホワイトニング</option>
-      </select>
-      <label>または任意URL</label>
-      <input id="customUrl" type="url" placeholder="https://..." />
-      <div class="row">
-        <button class="toolbtn" id="btnAddQr" type="button">QRをキャンバスに追加</button>
-      </div>
-      <p class="small">※ QRは追加後、二本指で拡大縮小・ドラッグで移動できます。</p>
-    </div>
-
-    <div class="section">
-      <h3>出力</h3>
-      <div class="row">
-        <button class="toolbtn" id="btnExport" type="button">PNGとして保存</button>
-        <button class="toolbtn" id="btnStamp" type="button">署名スタンプ（医院名・日時）</button>
-      </div>
-      <p class="small">iPadでは「共有」→「プリント」→「ピンチで拡大」→「ファイルに保存」でPDF化できます。</p>
-    </div>
-
-  </aside>
-
-  <main class="panel" style="display:flex;flex-direction:column;gap:10px;">
-    <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;">
-      <div>
-        <strong>編集キャンバス</strong>
-        <div class="legend">画像を読み込んでから注釈してください（2本指でパン/ズーム）。</div>
-      </div>
-      <div class="row">
-        <button class="toolbtn" id="btnFit" type="button">全体表示</button>
-        <button class="toolbtn" id="btnReset" type="button">リセット</button>
-      </div>
-    </div>
-    <div class="canvas-wrap" id="canvasWrap">
-      <canvas id="cvs" width="1400" height="900"></canvas>
-      <div class="floating-tip">モード切替：ペン／蛍光／移動／テキスト／QR</div>
-    </div>
-  </main>
-
-  <footer>
-    <div class="legend">© みなみ歯科医院 — MVP: 画像注釈 / QR貼付 / PNG出力（オフライン可）</div>
-    <div class="legend">今後：患者別URL発行、Slack連携、テンプレ自動挿入、WordPressの説明ページと連動</div>
-  </footer>
+<div id="wrap">
+  <div id="toolbar">
+    <button id="penBtn">ペン</button>
+    <button id="hlBtn">蛍光</button>
+    <button id="undoBtn">取り消し</button>
+    <button id="clearBtn">全消去</button>
+    <button id="resetViewBtn">表示リセット</button>
+  </div>
+  <canvas id="c"></canvas>
 </div>
 
 <script>
-// --- ユーティリティ（簡易QR生成：qrcode.jsの縮小版ロジック） ---
-// 依存ライブラリなしの軽量QR生成（最小限）
-// 参考: https://davidshimjs.github.io/qrcodejs/ の考え方を簡略化
-// ここではCanvasに直接描画する超簡易実装（誤り訂正レベルは低め）
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: true });
+let mode = 'pen'; // 'pen' | 'hl'
 
-function simpleQRCodeCanvas(url, size=200) {
-  // 代替：外部ライブラリなしのダミー（実運用は正式ライブラリ推奨）
-  // MVP用途：URL文字列から擬似パターン生成（QRっぽい見た目）。
-  // ※正式運用では qrcodejs や QRious を同梱してください。
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = size;
-  const ct = cv.getContext('2d');
-  ct.fillStyle = '#fff'; ct.fillRect(0,0,size,size);
-  ct.fillStyle = '#000';
-  // パターン生成
-  let seed = 0; for (let i=0;i<url.length;i++) seed = (seed*131 + url.charCodeAt(i))>>>0;
-  const cells = 29; // 29x29風
-  const cell = Math.floor(size/cells);
-  for (let y=0;y<cells;y++){
-    for (let x=0;x<cells;x++){
-      // 位置検出パターン風（隅3箇所）
-      const corner = (x<7&&y<7)||(x>cells-8&&y<7)||(x<7&&y>cells-8);
-      if (corner){
-        if ((x%6===0)||(y%6===0)|| (x<2&&y<2)) ct.fillRect(x*cell,y*cell,cell,cell);
-        continue;
-      }
-      // 擬似乱数で塗る
-      seed = (seed ^ (seed<<13))>>>0; seed = (seed ^ (seed>>17))>>>0; seed = (seed ^ (seed<<5))>>>0;
-      if ((seed & 7)===0) ct.fillRect(x*cell,y*cell,cell,cell);
-    }
+// ------ 座標とストロージ ------
+const strokes = []; // {mode, width, points:[{x,y}] }  ※論理座標で保存
+let drawing = false;
+let current = null;
+
+// ------ ビュー変換（パン＆ズーム） ------
+const view = { scale: 1, tx: 0, ty: 0 };
+const MIN_SCALE = 0.3, MAX_SCALE = 6;
+
+function applyView() {
+  ctx.setTransform(view.scale, 0, 0, view.scale, view.tx, view.ty);
+}
+function screenToLogical(pt) {
+  // 画面座標(px) → 論理座標（view逆変換）
+  return {
+    x: (pt.x - view.tx) / view.scale,
+    y: (pt.y - view.ty) / view.scale
+  };
+}
+function logicalToScreen(pt) {
+  return {
+    x: pt.x * view.scale + view.tx,
+    y: pt.y * view.scale + view.ty
+  };
+}
+
+// ------ DPRとキャンバスサイズ ------
+function setCanvasSize() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const w = Math.max(1, Math.floor(rect.width  * dpr));
+  const h = Math.max(1, Math.floor(rect.height * dpr));
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w; canvas.height = h;
+    ctx.setTransform(dpr,0,0,dpr,0,0); // 一旦DPR補正
+    // 論理→画面は view に任せるので redraw 内で再設定
+    redraw();
   }
-  return cv;
+}
+new ResizeObserver(setCanvasSize).observe(document.getElementById('wrap'));
+window.addEventListener('resize', setCanvasSize);
+
+// ------ レンダリング ------
+function redraw() {
+  // まずDPR初期化（1:1）して全消去
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // 論理→画面の変換を適用
+  applyView();
+
+  // ここで背景画像を敷くなら drawImage をこの座標系で
+  // ctx.drawImage(bgImg, 0, 0);
+
+  // 既存ストローク
+  for (const s of strokes) drawStroke(s);
+  // プレビュー
+  if (current) drawStroke(current);
 }
 
-// --- エディタ本体 ---
-const cvs = document.getElementById('cvs');
-const ctx = cvs.getContext('2d');
-const wrap = document.getElementById('canvasWrap');
-let bgImg = new Image();
-let bgLoaded = false;
-let scale = 1, offsetX = 0, offsetY = 0; // ビュー変換
-let mode = 'pen';
-let drawing = false; let lastX=0,lastY=0;
-let stroke = document.getElementById('stroke');
-let fontsize = document.getElementById('fontsize');
-let actions = []; // undo用にスナップショット保存（簡易）
-let stickers = []; // テキスト/QRなどのオブジェクト
-
-function saveSnapshot(){
-  if (!bgLoaded) return;
-  actions.push(cvs.toDataURL('image/png'));
-  if (actions.length>20) actions.shift();
-}
-
-function restoreSnapshot(){
-  if (actions.length===0) return;
-  const url = actions.pop();
-  const im = new Image();
-  im.onload = () => { ctx.clearRect(0,0,cvs.width,cvs.height); ctx.drawImage(im,0,0); };
-  im.src = url;
-}
-
-function drawScene(){
+function drawStroke(s) {
   ctx.save();
-  ctx.clearRect(0,0,cvs.width,cvs.height);
-  // 背景
-  if (bgLoaded) {
-    ctx.setTransform(scale,0,0,scale,offsetX,offsetY);
-    ctx.drawImage(bgImg,0,0);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.miterLimit = 2;
+
+  if (s.mode === 'pen') {
+    ctx.globalAlpha = 1.0;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = s.width ?? 2.5;
   } else {
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.fillStyle = '#0b0f25'; ctx.fillRect(0,0,cvs.width,cvs.height);
-    ctx.fillStyle = '#9aa7d7'; ctx.fillText('左の「画像操作」から画像を読み込んでください。', 40, 60);
+    ctx.globalAlpha = 0.25;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = '#ffd800';
+    ctx.lineWidth = s.width ?? 16;
   }
-  // ステッカー（テキスト/QR）
-  stickers.forEach(s => {
-    ctx.setTransform(s.scale,0,0,s.scale,s.x,s.y);
-    if (s.type==='text'){
-      ctx.font = `${s.fontSize}px system-ui`;
-      ctx.fillStyle = '#e7ecff';
-      ctx.fillText(s.text,0,0);
-    } else if (s.type==='qr'){
-      ctx.drawImage(s.canvas,0,0);
-    }
-  });
+
+  const pts = s.points;
+  if (!pts || pts.length < 2) { ctx.restore(); return; }
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
   ctx.restore();
 }
 
-function fitToScreen(){
-  if (!bgLoaded) return;
-  const pad = 40;
-  const sx = (cvs.width - pad*2) / bgImg.width;
-  const sy = (cvs.height - pad*2) / bgImg.height;
-  scale = Math.min(sx,sy);
-  offsetX = (cvs.width - bgImg.width*scale)/2;
-  offsetY = (cvs.height - bgImg.height*scale)/2;
-  drawScene();
+// ------ ポインタ管理（1本＝描画 / 2本＝パン・ピンチ） ------
+const pointers = new Map(); // id -> {x,y}
+function getEventPoint(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
 }
 
-function resetView(){
-  scale = 1; offsetX = 0; offsetY = 0; drawScene();
+// ピンチの基準
+let pinchStart = null; // {mid:{x,y}, dist:number, view:{scale,tx,ty}}
+function twoFingerInfo() {
+  const arr = Array.from(pointers.values());
+  const p0 = arr[0], p1 = arr[1];
+  const mid = { x:(p0.x+p1.x)/2, y:(p0.y+p1.y)/2 };
+  const dx = p1.x - p0.x, dy = p1.y - p0.y;
+  const dist = Math.hypot(dx, dy);
+  return { mid, dist };
 }
 
-// 入力座標（画面→キャンバス）
-function toCanvasCoords(clientX, clientY){
-  const rect = cvs.getBoundingClientRect();
-  const x = (clientX - rect.left - offsetX)/scale;
-  const y = (clientY - rect.top - offsetY)/scale;
-  return {x,y};
-}
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  canvas.setPointerCapture(e.pointerId);
+  const pt = getEventPoint(e);
+  pointers.set(e.pointerId, pt);
 
-// ジェスチャ
-let lastTouchDist = null;
-function distance(t1,t2){ const dx=t1.clientX-t2.clientX, dy=t1.clientY-t2.clientY; return Math.hypot(dx,dy); }
-
-cvs.addEventListener('pointerdown', (e)=>{
-  cvs.setPointerCapture(e.pointerId);
-  if (!bgLoaded) return;
-  const {x,y} = toCanvasCoords(e.clientX,e.clientY);
-  if (mode==='move'){
-    drawing=true; lastX=e.clientX; lastY=e.clientY;
-  } else if (mode==='pen' || mode==='highlighter'){
-    saveSnapshot();
-    drawing=true; ctx.save();
-    ctx.setTransform(scale,0,0,scale,offsetX,offsetY);
-    ctx.lineCap='round'; ctx.lineJoin='round';
-    ctx.lineWidth=parseInt(stroke.value,10);
-    ctx.globalAlpha = (mode==='highlighter')?0.35:1;
-    ctx.strokeStyle = '#7aa2ff';
-    ctx.beginPath(); ctx.moveTo(x,y);
-  } else if (mode==='text'){
-    const t = prompt('テキストを入力');
-    if (t){ stickers.push({type:'text', text:t, x:e.clientX, y:e.clientY, scale:1, fontSize: parseInt(fontsize.value,10)}); drawScene(); }
-  } else if (mode==='qr'){
-    const url = getCurrentUrl(); if (!url){ alert('URLを選択または入力してください'); return; }
-    const qcv = simpleQRCodeCanvas(url, 220);
-    stickers.push({type:'qr', canvas:qcv, x:e.clientX, y:e.clientY, scale:1}); drawScene();
+  if (pointers.size === 1) {
+    // 1本指 → 描画モード
+    const logical = screenToLogical(pt);
+    drawing = true;
+    current = { mode, points:[logical], width: mode==='pen' ? 2.5 : 16 };
+  } else if (pointers.size === 2) {
+    // 2本指 → パン・ピンチ開始（描画キャンセル）
+    drawing = false;
+    current = null;
+    const { mid, dist } = twoFingerInfo();
+    pinchStart = {
+      mid, dist,
+      view: { scale: view.scale, tx: view.tx, ty: view.ty }
+    };
   }
-});
+  redraw();
+}, { passive:false });
 
-cvs.addEventListener('pointermove', (e)=>{
-  if (!bgLoaded) return;
-  if (drawing){
-    if (mode==='move'){
-      offsetX += (e.clientX - lastX); offsetY += (e.clientY - lastY);
-      lastX = e.clientX; lastY = e.clientY; drawScene();
-    } else if (mode==='pen' || mode==='highlighter'){
-      const {x,y} = toCanvasCoords(e.clientX,e.clientY);
-      ctx.lineTo(x,y); ctx.stroke();
-    }
+canvas.addEventListener('pointermove', (e) => {
+  if (!pointers.has(e.pointerId)) return;
+  e.preventDefault();
+  pointers.set(e.pointerId, getEventPoint(e));
+
+  if (pointers.size === 1 && drawing && current) {
+    const onlyPt = pointers.get(e.pointerId);
+    current.points.push(screenToLogical(onlyPt));
+    redraw();
+  } else if (pointers.size === 2 && pinchStart) {
+    // ピンチ更新
+    const { mid, dist } = twoFingerInfo();
+    const s0 = pinchStart.view.scale;
+    let s = s0 * (dist / pinchStart.dist);
+    s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+
+    // 中点を固定する補正:
+    // mid(画面) が pinchStart.mid と同じ論理点を指し続けるように tx,ty を調整
+    // 論理座標で固定したい点 L を求める
+    const Lx = (pinchStart.mid.x - pinchStart.view.tx) / pinchStart.view.scale;
+    const Ly = (pinchStart.mid.y - pinchStart.view.ty) / pinchStart.view.scale;
+
+    // その L が新しいスケールでも mid の画面位置に来るように tx,ty を設定
+    view.scale = s;
+    view.tx = mid.x - Lx * s;
+    view.ty = mid.y - Ly * s;
+
+    redraw();
   }
-});
+}, { passive:false });
 
-cvs.addEventListener('pointerup', ()=>{
-  if (drawing){ drawing=false; ctx.restore?.(); drawScene(); }
-});
-
-// ピンチズーム（iPad）
-wrap.addEventListener('touchmove', (e)=>{
-  if (e.touches.length===2){
-    e.preventDefault();
-    const d = distance(e.touches[0], e.touches[1]);
-    if (lastTouchDist!=null){
-      const factor = d/lastTouchDist; const cx = (e.touches[0].clientX+e.touches[1].clientX)/2; const cy=(e.touches[0].clientY+e.touches[1].clientY)/2;
-      const {x,y}=toCanvasCoords(cx,cy);
-      // 中心を保つズーム
-      offsetX = cx - x*scale*factor; offsetY = cy - y*scale*factor; scale *= factor; drawScene();
-    }
-    lastTouchDist = d;
+canvas.addEventListener('pointerup', (e) => {
+  e.preventDefault();
+  const wasDrawing = drawing;
+  if (drawing && current && pointers.size === 1) {
+    // 1本指描画の終了
+    const pt = pointers.get(e.pointerId);
+    if (pt) current.points.push(screenToLogical(pt));
+    strokes.push(current);
   }
-},{passive:false});
-wrap.addEventListener('touchend', ()=>{ lastTouchDist=null; }, {passive:true});
+  drawing = false; current = null;
 
-// 画像読み込み
-function loadImageFromFile(file){
-  const r = new FileReader();
-  r.onload = ()=>{ bgImg = new Image(); bgImg.onload = ()=>{ bgLoaded=true; drawScene(); fitToScreen(); }; bgImg.src = r.result; };
-  r.readAsDataURL(file);
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinchStart = null;
+  redraw();
+}, { passive:false });
+
+canvas.addEventListener('pointercancel', (e) => {
+  e.preventDefault();
+  drawing = false; current = null;
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinchStart = null;
+  redraw();
+}, { passive:false });
+
+// ------ ツールバー ------
+document.getElementById('penBtn').onclick = () => mode='pen';
+document.getElementById('hlBtn').onclick  = () => mode='hl';
+document.getElementById('undoBtn').onclick = () => { strokes.pop(); redraw(); };
+document.getElementById('clearBtn').onclick = () => { strokes.length=0; redraw(); };
+document.getElementById('resetViewBtn').onclick = () => { view.scale=1; view.tx=0; view.ty=0; redraw(); };
+
+// ------ 初期化 ------
+function init() {
+  setCanvasSize();
+  redraw();
 }
-
-document.getElementById('fileInput').addEventListener('change', (e)=>{
-  const f = e.target.files?.[0]; if (f) loadImageFromFile(f);
-});
-
-document.getElementById('btnLoadDemo').addEventListener('click', ()=>{
-  // ライセンスフリーのダミー生成（単色背景+文字）
-  const demo = document.createElement('canvas'); demo.width=1800; demo.height=1200; const ct=demo.getContext('2d');
-  ct.fillStyle='#11172f'; ct.fillRect(0,0,demo.width,demo.height);
-  ct.fillStyle='#e7ecff'; ct.font='72px system-ui'; ct.fillText('Panorama / Intraoral Demo', 90, 200);
-  ct.font='36px system-ui'; ct.fillText('ここにパノラマX線や口腔内写真を読み込み、注釈・QRを配置します。', 90, 280);
-  bgImg = new Image(); bgImg.onload=()=>{ bgLoaded=true; drawScene(); fitToScreen(); }; bgImg.src = demo.toDataURL('image/png');
-});
-
-// モード切替
-Array.from(document.querySelectorAll('#toolMode .chip')).forEach(ch=>{
-  ch.addEventListener('click', ()=>{
-    Array.from(document.querySelectorAll('#toolMode .chip')).forEach(x=>x.classList.remove('active'));
-    ch.classList.add('active'); mode = ch.dataset.mode;
-  });
-});
-
-// QR生成
-function getCurrentUrl(){
-  const p = document.getElementById('presetUrl').value.trim();
-  const c = document.getElementById('customUrl').value.trim();
-  return c || p || '';
-}
-
-document.getElementById('btnAddQr').addEventListener('click', ()=>{
-  mode='qr'; Array.from(document.querySelectorAll('#toolMode .chip')).forEach(x=>x.classList.remove('active'));
-  document.querySelector('[data-mode="qr"]').classList.add('active');
-});
-
-// 出力
-function addStamp(){
-  const name = (document.getElementById('patientName').value||'');
-  const pid  = (document.getElementById('patientId').value||'');
-  const d = new Date(); const stamp = `みなみ歯科医院 | ${d.toLocaleString('ja-JP')}\n患者:${name||'-'} / ID:${pid||'-'}`;
-  stickers.push({type:'text', text:stamp, x:20, y:cvs.height-40, scale:1, fontSize:14});
-  drawScene();
-}
-
-document.getElementById('btnStamp').addEventListener('click', addStamp);
-
-document.getElementById('btnExport').addEventListener('click', ()=>{
-  // 背景+ステッカーを再描画してからエクスポート
-  drawScene();
-  const a = document.createElement('a');
-  const pid = (document.getElementById('patientId').value||'noid');
-  a.download = `consult_${pid}.png`;
-  a.href = cvs.toDataURL('image/png');
-  a.click();
-});
-
-// 操作
- document.getElementById('btnUndo').addEventListener('click', restoreSnapshot);
- document.getElementById('btnClear').addEventListener('click', ()=>{ saveSnapshot(); stickers=[]; drawScene(); });
- document.getElementById('btnFit').addEventListener('click', fitToScreen);
- document.getElementById('btnReset').addEventListener('click', resetView);
-
-// 初期描画
-drawScene();
+init();
 </script>
 </body>
 </html>
