@@ -11,7 +11,7 @@
 
   /* 左サイドバー */
   #sidebar {
-    width:320px; max-width:40vw; min-width:260px;
+    width:340px; max-width:42vw; min-width:270px;
     background:var(--panel); border-right:1px solid var(--line);
     display:flex; flex-direction:column; gap:14px; padding:14px; box-sizing:border-box;
   }
@@ -20,8 +20,6 @@
   .row { display:flex; gap:8px; }
   .full { width:100%; }
   .muted { color:#6b7280; font-size:12px; margin-top:6px; }
-
-  /* 操作系 */
   button, label.as-btn, select, input[type=text] {
     font-size:14px; border:1px solid var(--line); border-radius:10px; background:#fff; color:#111827;
     padding:8px 10px; box-sizing:border-box; cursor:pointer;
@@ -30,6 +28,11 @@
   button.active { outline:2px solid var(--accent); outline-offset:-2px; }
   input[type=file] { display:none; }
   input[type=text] { width:100%; }
+  label.as-btn { display:block; width:100%; text-align:center; }
+
+  /* 色スウォッチ */
+  .swatch { width:28px; height:28px; border-radius:7px; border:1px solid var(--line); cursor:pointer; }
+  .swatch.active { outline:2px solid var(--accent); outline-offset:-2px; }
 
   /* 右側キャンバス */
   #main { flex:1; display:flex; flex-direction:column; min-width:0; }
@@ -37,11 +40,10 @@
   canvas { position:absolute; inset:0; width:100%; height:100%; display:block; background:#fff; touch-action:none; }
   #hint { position:absolute; right:10px; bottom:10px; background:#0007; color:#fff; font-size:12px; padding:6px 8px; border-radius:8px; }
 
-  /* 小画面でサイドバーを上に */
   @media (max-width: 900px) {
     #wrap { flex-direction:column; }
     #sidebar { width:auto; max-width:none; border-right:none; border-bottom:1px solid var(--line); }
-    #canvasPane { margin:10px; height:calc(100vh - 280px); }
+    #canvasPane { margin:10px; height:calc(100vh - 420px); }
   }
 </style>
 </head>
@@ -50,52 +52,100 @@
 
   <!-- 左サイドバー -->
   <aside id="sidebar">
+
+    <!-- ページ -->
     <div class="section">
-      <h2>患者情報</h2>
+      <h2>ページ</h2>
       <div class="row">
-        <input id="ptName" class="full" type="text" placeholder="患者名（任意）">
+        <button id="prevPageBtn" class="full">◀︎ 前</button>
+        <div id="pageIndicator" class="full" style="text-align:center; padding:8px;">1 / 1</div>
+        <button id="nextPageBtn" class="full">次 ▶︎</button>
       </div>
       <div class="row" style="margin-top:6px">
-        <input id="ptId" class="full" type="text" placeholder="ID / 診察券番号（任意）">
+        <button id="addPageBtn" class="full">ページ追加</button>
+        <button id="deletePageBtn" class="full">現在ページ削除</button>
       </div>
-      <div class="muted">※ 表示や保存には影響しません（将来の自動記載用プレースホルダ）</div>
+      <div class="muted">※ ページごとに背景・スタンプ・線を保持します</div>
     </div>
 
+    <!-- 患者情報 -->
+    <div class="section">
+      <h2>患者情報</h2>
+      <div class="row"><input id="ptName" class="full" type="text" placeholder="患者名"></div>
+      <div class="row" style="margin-top:6px"><input id="ptId" class="full" type="text" placeholder="ID / 診察券番号"></div>
+      <div class="muted">左上に小さく表示（保存にも反映）</div>
+    </div>
+
+    <!-- 描画 -->
     <div class="section">
       <h2>描画ツール</h2>
       <div class="row">
         <button id="penBtn" class="full active">ペン</button>
         <button id="hlBtn" class="full">蛍光</button>
-        <button id="selectBtn" class="full" title="画像/QRの移動・サイズ変更">選択</button>
+        <button id="selectBtn" class="full" title="スタンプの移動・回転・サイズ変更">選択</button>
       </div>
-      <div class="row" style="margin-top:6px">
+      <div class="row" style="margin-top:8px; align-items:center">
+        <div id="colorBlack" class="swatch active" title="黒"  style="background:#111"></div>
+        <div id="colorRed"   class="swatch"        title="赤"  style="background:#e11d48"></div>
+        <div id="colorBlue"  class="swatch"        title="青"  style="background:#2563eb"></div>
+        <div id="colorYel"   class="swatch"        title="黄"  style="background:#f59e0b"></div>
+        <span class="muted" style="margin-left:6px">※色はペンのみ</span>
+      </div>
+      <div class="row" style="margin-top:8px">
         <button id="undoBtn" class="full">元に戻す</button>
         <button id="clearPenBtn" class="full" title="手描きのみクリア">描画クリア</button>
       </div>
-      <div class="muted">1本指:描く/選択　2本指:パン&ズーム</div>
     </div>
 
+    <!-- 画像・QR・スタンプ -->
     <div class="section">
-      <h2>画像・QR・表</h2>
-      <label class="as-btn full"><input id="bgInput" type="file" accept="image/*">背景画像を読み込む</label>
-      <label class="as-btn full"><input id="stampInput" type="file" accept="image/*">スタンプ画像を追加</label>
-      <button id="qrBtn" class="full" title="URLやテキストからQR生成">QRを追加</button>
-      <button id="tableBtn" class="full" title="治療計画の空欄マス目を追加">治療計画表を追加</button>
-      <button id="clearAllBtn" class="full" style="margin-top:6px" title="背景/スタンプ/描画すべて消去">全消去</button>
+      <h2>画像・QR・既定スタンプ</h2>
+      <label class="as-btn"><input id="bgInput" type="file" accept="image/*">背景画像を読み込む</label>
+      <button id="qrBtn" class="full" title="URL/テキストを入力してQR配置">自由入力のQRを追加</button>
+      <div class="row" style="margin-top:8px">
+        <button id="implantBtn" class="full" title="インプラントスタンプ">インプラント</button>
+        <button id="crownBtn" class="full" title="被せ物（クラウン）スタンプ">被せ物</button>
+      </div>
+      <button id="clearAllBtn" class="full" style="margin-top:8px" title="現在ページを全消去">現在ページ 全消去</button>
     </div>
 
+    <!-- 説明QRプリセット -->
     <div class="section">
-      <h2>出力</h2>
-      <button id="saveBtn" class="full">PNGとして保存</button>
-      <div class="muted">※ iPadは「プリント→ピンチ拡大→共有」でPDF化も可能</div>
+      <h2>説明QR（プリセット）</h2>
+      <div class="row">
+        <select id="qrPresetSelect" class="full"></select>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button id="placePresetBtn" class="full">この説明をQRで配置</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <input id="presetLabel" class="full" type="text" placeholder="追加ラベル（例：インプラント説明）">
+      </div>
+      <div class="row" style="margin-top:6px">
+        <input id="presetData" class="full" type="text" placeholder="URL または テキスト">
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button id="addPresetBtn" class="full">候補を追加</button>
+      </div>
+      <div class="muted">※ 候補はブラウザに保存され、次回も表示されます</div>
     </div>
+
+    <!-- 表示・出力 -->
+    <div class="section">
+      <h2>表示 / 出力</h2>
+      <div class="row">
+        <button id="toggleLinesBtn" class="full">罫線 ON/OFF</button>
+        <button id="saveBtn" class="full">PNG保存（このページ）</button>
+      </div>
+    </div>
+
   </aside>
 
   <!-- 右側キャンバス -->
   <main id="main">
     <div id="canvasPane">
       <canvas id="c"></canvas>
-      <div id="hint">1本指:描く/選択　2本指:パン&ズーム　右下ハンドル:サイズ変更</div>
+      <div id="hint">1本指:描く/選択　2本指:パン&ズーム　上の丸=回転　右下=拡大縮小</div>
     </div>
   </main>
 
@@ -103,7 +153,7 @@
 
 <script>
 /* =========================
-   1) 基本セットアップ
+   基本セットアップ
 ========================= */
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d', { alpha:true, desynchronized:true });
@@ -112,417 +162,479 @@ const pane = document.getElementById('canvasPane');
 let tool = 'pen'; // 'pen' | 'hl' | 'select'
 let lineWidthPen = 3;
 let lineWidthHL  = 16;
+let penColor = '#111'; // 初期は黒
 
-/* =========================
-   2) 論理モデル
-========================= */
-// 手描き（論理座標に保存）
-const strokes = []; // [{mode:'pen'|'hl', width:number, points:[{x,y}]}]
-let drawing = false;
-let current = null;
+/* 罫線 */
+let showLines = true;
+const LINE_STEP = 30;
 
-// 背景（下敷き）
-let bgImg = null;                // HTMLImageElement
-let bgSize = { w:0, h:0 };       // 論理サイズ
+/* ページ：各ページごとにデータを持つ */
+let pages = [makeEmptyPage()];
+let pageIndex = 0;
+function currentPage(){ return pages[pageIndex]; }
+function makeEmptyPage(){
+  return {
+    strokes: [], // {mode,width,color?,points}
+    items: [],   // {type,img,x,y,w,h,angle}
+    bgImg: null,
+    bgSize: {w:0,h:0}
+  };
+}
 
-// オブジェクト（画像スタンプ／QR／表）
-/* item: { type:'stamp'|'qr'|'table', img:HTMLImageElement, x,y,w,h }  ※論理座標 */
-const items = [];
-let selectedIdx = -1;
-const HANDLE_SIZE = 12;          // 論理座標上のハンドルサイズ
-
-// ビュー（パン＆ズーム）
+/* ビュー（パン＆ズーム）は全ページ共通 */
 const view = { scale:1, tx:0, ty:0 };
 const MIN_SCALE = 0.3, MAX_SCALE = 6;
 
+const HANDLE_SIZE = 12;
+const ROT_HANDLE_OFFSET = 24;
+
 /* =========================
-   3) DPRとキャンバスサイズ
+   DPRとサイズ
 ========================= */
-function setCanvasSize() {
+function setCanvasSize(){
   const dpr = window.devicePixelRatio || 1;
   const r = canvas.getBoundingClientRect();
-  const w = Math.max(1, Math.floor(r.width * dpr));
-  const h = Math.max(1, Math.floor(r.height * dpr));
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w; canvas.height = h;
-  }
+  const w = Math.floor(r.width*dpr), h = Math.floor(r.height*dpr);
+  if (canvas.width!==w || canvas.height!==h){ canvas.width=w; canvas.height=h; }
   redraw();
 }
 new ResizeObserver(setCanvasSize).observe(pane);
-window.addEventListener('resize', setCanvasSize, { passive:true });
 
 /* =========================
-   4) 座標変換
+   変換
 ========================= */
-function applyView() {
+function applyView(){
   const dpr = window.devicePixelRatio || 1;
-  ctx.setTransform(dpr,0,0,dpr,0,0);             // まずピクセル1:1
-  ctx.transform(view.scale,0,0,view.scale,view.tx,view.ty); // そこからビュー適用
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.transform(view.scale,0,0,view.scale,view.tx,view.ty);
 }
-function screenToLogical(pt) { return { x:(pt.x - view.tx)/view.scale, y:(pt.y - view.ty)/view.scale }; }
-function logicalToScreen(pt) { return { x:pt.x*view.scale + view.tx, y:pt.y*view.scale + view.ty }; }
+function screenToLogical(pt){ return { x:(pt.x - view.tx)/view.scale, y:(pt.y - view.ty)/view.scale }; }
 
 /* =========================
-   5) レンダリング
+   レンダリング
 ========================= */
-function clearDevice() {
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-}
-function redraw() {
+function clearDevice(){ ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height); }
+
+function redraw(){
   clearDevice();
   applyView();
 
-  // 背景
-  if (bgImg && bgSize.w>0 && bgSize.h>0) {
-    ctx.drawImage(bgImg, 0, 0, bgSize.w, bgSize.h);
-  }
+  const pg = currentPage();
 
-  // オブジェクト（スタンプ/QR/表）
-  for (let i=0;i<items.length;i++) drawItem(items[i], i===selectedIdx);
-
-  // 手描き
-  for (const s of strokes) drawStroke(s);
+  if (showLines) drawHorizontalLines(LINE_STEP);
+  if (pg.bgImg) ctx.drawImage(pg.bgImg, 0, 0, pg.bgSize.w, pg.bgSize.h);
+  for (let i=0;i<pg.items.length;i++) drawItem(pg.items[i], i===selectedIdx);
+  for (const s of pg.strokes) drawStroke(s);
   if (current) drawStroke(current);
+
+  drawPatientInfo();
+  updatePageIndicator();
 }
 
-function drawStroke(s) {
-  if (!s.points || s.points.length < 2) return;
+function drawHorizontalLines(step){
   ctx.save();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.miterLimit = 2;
-  if (s.mode === 'pen') {
-    ctx.globalAlpha = 1.0; ctx.strokeStyle = '#111'; ctx.lineWidth = s.width ?? lineWidthPen;
-  } else {
-    ctx.globalAlpha = 0.28; ctx.strokeStyle = '#ffd600'; ctx.lineWidth = s.width ?? lineWidthHL;
-  }
+  ctx.strokeStyle = '#e5e7eb';
+  ctx.lineWidth = 1 / view.scale;
+  const w = canvas.width / view.scale, h = canvas.height / view.scale;
+  const startX = -view.tx / view.scale, startY = -view.ty / view.scale;
+  const endX = startX + w, endY = startY + h;
   ctx.beginPath();
-  ctx.moveTo(s.points[0].x, s.points[0].y);
-  for (let i=1;i<s.points.length;i++) ctx.lineTo(s.points[i].x, s.points[i].y);
+  const y0 = Math.floor(startY / step) * step;
+  for (let y = y0; y < endY; y += step) { ctx.moveTo(startX, y); ctx.lineTo(endX, y); }
   ctx.stroke();
   ctx.restore();
 }
 
-function drawItem(it, selected) {
-  ctx.drawImage(it.img, it.x, it.y, it.w, it.h);
-  if (!selected) return;
-  // 選択枠＆ハンドル
+function drawStroke(s){
+  if (!s.points || s.points.length<2) return;
   ctx.save();
-  ctx.strokeStyle = '#2563eb';
-  ctx.lineWidth = 1 / view.scale;
-  ctx.setLineDash([4 / view.scale, 3 / view.scale]);
-  ctx.strokeRect(it.x, it.y, it.w, it.h);
-  ctx.setLineDash([]);
-  const r = HANDLE_SIZE/2;
-  const hx = it.x + it.w, hy = it.y + it.h;
-  ctx.fillStyle = '#2563eb';
-  ctx.fillRect(hx - r, hy - r, HANDLE_SIZE, HANDLE_SIZE);
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  if (s.mode==='pen'){ ctx.globalAlpha=1; ctx.strokeStyle=s.color||'#111'; ctx.lineWidth=s.width||lineWidthPen; }
+  else { ctx.globalAlpha=0.28; ctx.strokeStyle='#ffd600'; ctx.lineWidth=s.width||lineWidthHL; }
+  ctx.beginPath(); ctx.moveTo(s.points[0].x,s.points[0].y);
+  for (let i=1;i<s.points.length;i++) ctx.lineTo(s.points[i].x,s.points[i].y);
+  ctx.stroke(); ctx.restore();
+}
+
+function getItemCenter(it){ return { cx: it.x + it.w/2, cy: it.y + it.h/2 }; }
+
+function drawItem(it, selected){
+  const {cx, cy} = getItemCenter(it);
+  ctx.save();
+  ctx.translate(cx, cy); ctx.rotate(it.angle || 0);
+  ctx.drawImage(it.img, -it.w/2, -it.h/2, it.w, it.h);
+
+  if (selected){
+    ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1 / view.scale;
+    ctx.setLineDash([4 / view.scale, 3 / view.scale]);
+    ctx.strokeRect(-it.w/2, -it.h/2, it.w, it.h);
+    ctx.setLineDash([]);
+
+    const r = HANDLE_SIZE/2;
+    ctx.fillStyle = '#2563eb';
+    ctx.fillRect(it.w/2 - r, it.h/2 - r, HANDLE_SIZE, HANDLE_SIZE); // resize
+
+    const rotY = -it.h/2 - ROT_HANDLE_OFFSET; // rotate
+    ctx.beginPath(); ctx.moveTo(0, -it.h/2); ctx.lineTo(0, rotY); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, rotY, HANDLE_SIZE*0.6, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawPatientInfo(){
+  const name = document.getElementById('ptName').value.trim();
+  const id   = document.getElementById('ptId').value.trim();
+  if (!name && !id) return;
+  ctx.save();
+  ctx.fillStyle = '#374151';
+  ctx.font = `${12 / view.scale}px system-ui, sans-serif`;
+  ctx.textBaseline = 'top';
+  ctx.fillText(`${name}${name && id ? ' ' : ''}${id}`, 10, 10);
   ctx.restore();
 }
 
 /* =========================
-   6) 背景・スタンプ・QR・表
+   背景・QR・既定スタンプ（ページ単位）
 ========================= */
 document.getElementById('bgInput').addEventListener('change', (ev)=>{
-  const file = ev.target.files?.[0];
-  if (!file) return;
+  const file = ev.target.files?.[0]; if (!file) return;
   const url = URL.createObjectURL(file);
   const img = new Image();
-  img.onload = ()=>{
-    bgImg = img;
-    bgSize.w = img.naturalWidth; bgSize.h = img.naturalHeight;
-    // 自動フィットは行わない（ご要望どおり）
-    redraw();
-    URL.revokeObjectURL(url);
-  };
-  img.src = url;
-});
-
-document.getElementById('stampInput').addEventListener('change', (ev)=>{
-  const file = ev.target.files?.[0];
-  if (!file) return;
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  img.onload = ()=>{
-    const initW = Math.min(600, img.naturalWidth);
-    const scale = initW / img.naturalWidth;
-    const initH = img.naturalHeight * scale;
-    const center = screenToLogical(centerOfCanvas());
-    items.push({ type:'stamp', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH });
-    selectedIdx = items.length - 1;
-    redraw();
-    URL.revokeObjectURL(url);
-  };
+  img.onload = ()=>{ const pg=currentPage(); pg.bgImg=img; pg.bgSize={w:img.naturalWidth, h:img.naturalHeight}; redraw(); URL.revokeObjectURL(url); };
   img.src = url;
 });
 
 document.getElementById('qrBtn').addEventListener('click', ()=>{
   const data = prompt('QRにするURLまたはテキスト：', 'https://minami-dentalclinic.com');
-  if (!data) return;
-  const size = 512;
+  if (!data) return; placeQR(data);
+});
+
+function placeQR(data){
+  const size = 240;
   const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
+  const img = new Image(); img.crossOrigin = 'anonymous';
   img.onload = ()=>{
-    const initW = 240, initH = 240;
+    const initW=180, initH=180;
     const center = screenToLogical(centerOfCanvas());
-    items.push({ type:'qr', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH });
-    selectedIdx = items.length - 1;
-    redraw();
+    const pg = currentPage();
+    pg.items.push({ type:'qr', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 });
+    selectedIdx = pg.items.length - 1; redraw();
   };
   img.onerror = ()=> alert('QR画像の取得に失敗しました。ネットワークをご確認ください。');
   img.src = src;
-});
+}
 
-/* === 治療計画表（空欄マス目）スタンプの生成 === */
-document.getElementById('tableBtn').addEventListener('click', ()=>{
-  // 簡単な入力（空ENTERでデフォルト）
-  const cols = Math.max(1, parseInt(prompt('列数（例: 6）', '6') || '6', 10));
-  const rows = Math.max(1, parseInt(prompt('行数（例: 4）', '4') || '4', 10));
-  const cell = Math.max(20, parseInt(prompt('1マスの大きさpx（例: 80）', '80') || '80', 10));
-  const img = makeGridStamp(cols, rows, cell);
-  const initW = cols * cell;
-  const initH = rows * cell;
+document.getElementById('implantBtn').addEventListener('click', ()=>{
+  const img = makeImplantStamp(); const initW=180, initH=320;
   const center = screenToLogical(centerOfCanvas());
-  items.push({ type:'table', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH });
-  selectedIdx = items.length - 1;
-  redraw();
+  const pg = currentPage();
+  pg.items.push({ type:'implant', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 });
+  selectedIdx = pg.items.length - 1; redraw();
+});
+document.getElementById('crownBtn').addEventListener('click', ()=>{
+  const img = makeCrownStamp(); const initW=260, initH=220;
+  const center = screenToLogical(centerOfCanvas());
+  const pg = currentPage();
+  pg.items.push({ type:'crown', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 });
+  selectedIdx = pg.items.length - 1; redraw();
 });
 
-/* 空欄マス目をオフスクリーンで描いてImage化 */
-function makeGridStamp(cols, rows, cell) {
-  const pad = 0; // 余白なし（必要なら調整）
-  const w = cols * cell + pad*2;
-  const h = rows * cell + pad*2;
-  const off = document.createElement('canvas');
-  off.width = w; off.height = h;
-  const g = off.getContext('2d');
-
-  g.fillStyle = '#ffffff';
-  g.fillRect(0,0,w,h);
-
-  // 軽い影付きの外枠（見やすくする程度）
-  g.strokeStyle = '#9aa4b2';
-  g.lineWidth = 2;
-  g.strokeRect(0.5,0.5,w-1,h-1);
-
-  // グリッド線
-  g.strokeStyle = '#cbd5e1'; // 明るめグレー
-  g.lineWidth = 1;
+/* 既定スタンプ生成 */
+function makeImplantStamp(){
+  const w=180, h=320, off=document.createElement('canvas'); off.width=w; off.height=h; const g=off.getContext('2d');
+  g.clearRect(0,0,w,h);
+  g.fillStyle = '#e5e7eb'; g.strokeStyle = '#9ca3af'; g.lineWidth = 2;
+  g.beginPath(); g.roundRect(50, 20, 80, 50, 10); g.fill(); g.stroke();
+  g.fillStyle = '#d1d5db'; g.fillRect(75, 70, 30, 18);
+  g.fillStyle = '#cbd5e1'; g.strokeStyle = '#94a3b8'; g.lineWidth = 2;
+  g.beginPath(); g.roundRect(60, 88, 60, 180, 20); g.fill(); g.stroke();
+  g.strokeStyle = '#94a3b8'; g.lineWidth = 2;
+  for (let y=100;y<250;y+=14){ g.beginPath(); g.moveTo(62,y); g.lineTo(118,y+16); g.stroke(); }
+  g.fillStyle = '#cbd5e1'; g.beginPath(); g.moveTo(60,268); g.lineTo(120,268); g.lineTo(90,300); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = 'rgba(0,0,0,0.05)'; g.beginPath(); g.ellipse(90, 310, 45, 8, 0, 0, Math.PI*2); g.fill();
+  const img=new Image(); img.src=off.toDataURL('image/png'); return img;
+}
+function makeCrownStamp(){
+  const w=260, h=220, off=document.createElement('canvas'); off.width=w; off.height=h; const g=off.getContext('2d');
+  g.clearRect(0,0,w,h);
+  g.fillStyle = '#ffffff'; g.strokeStyle = '#94a3b8'; g.lineWidth = 2;
   g.beginPath();
-  for (let c=1;c<cols;c++) {
-    const x = pad + c*cell + 0.5;
-    g.moveTo(x, pad);
-    g.lineTo(x, h-pad);
-  }
-  for (let r=1;r<rows;r++) {
-    const y = pad + r*cell + 0.5;
-    g.moveTo(pad, y);
-    g.lineTo(w-pad, y);
-  }
-  g.stroke();
-
-  const img = new Image();
-  img.src = off.toDataURL('image/png');
-  return img;
+  g.moveTo(40,140);
+  g.bezierCurveTo(40,90, 70,60, 110,60);
+  g.bezierCurveTo(125,35, 135,30, 150,60);
+  g.bezierCurveTo(190,60, 220,90, 220,140);
+  g.bezierCurveTo(220,175, 200,190, 130,190);
+  g.bezierCurveTo(70,190, 40,175, 40,140);
+  g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.ellipse(120,95,60,20,-0.4,0,Math.PI*2); g.fill();
+  g.strokeStyle = '#cbd5e1'; g.lineWidth=1.5; g.beginPath(); g.moveTo(90,120); g.quadraticCurveTo(130,110,170,120);
+  g.moveTo(110,140); g.quadraticCurveTo(130,135,150,140); g.stroke();
+  g.fillStyle = 'rgba(0,0,0,0.06)'; g.beginPath(); g.ellipse(130,205,70,10,0,0,Math.PI*2); g.fill();
+  const img=new Image(); img.src=off.toDataURL('image/png'); return img;
 }
 
 /* =========================
-   7) 入力：描画／選択／パン・ピンチ
+   当たり判定（回転対応）
 ========================= */
-const pointers = new Map();          // id -> {x,y}
-let pinchStart = null;               // {mid, dist, view}
-let dragState = null;                // {kind:'move'|'resize', idx, start:{x,y}, itemStart:{x,y,w,h}}
-
-function getEventPoint(e) { const r = canvas.getBoundingClientRect(); return { x:e.clientX - r.left, y:e.clientY - r.top }; }
-function twoFingerInfo() {
-  const arr = Array.from(pointers.values());
-  const p0 = arr[0], p1 = arr[1];
-  const mid = { x:(p0.x+p1.x)/2, y:(p1.y+p0.y)/2 };
-  const dist = Math.hypot(p1.x-p0.x, p1.y-p0.y);
-  return { mid, dist };
+function worldToLocal(pt, it){
+  const {cx, cy} = getItemCenter(it);
+  const a = -(it.angle || 0);
+  const dx = pt.x - cx, dy = pt.y - cy;
+  return { x:  dx*Math.cos(a) - dy*Math.sin(a),
+           y:  dx*Math.sin(a) + dy*Math.cos(a) };
 }
-function hitTestItem(L) {
-  for (let i=items.length-1;i>=0;i--) {
-    const it = items[i];
-    const inBody = (L.x>=it.x && L.x<=it.x+it.w && L.y>=it.y && L.y<=it.y+it.h);
-    const hx = it.x + it.w, hy = it.y + it.h;
-    const inHandle = (L.x>=hx-HANDLE_SIZE/2 && L.x<=hx+HANDLE_SIZE/2 && L.y>=hy-HANDLE_SIZE/2 && L.y<=hy+HANDLE_SIZE/2);
-    if (inHandle) return { kind:'handle', idx:i };
-    if (inBody) return { kind:'body', idx:i };
+function localHitTest(ptLocal, it){
+  const halfW = it.w/2, halfH = it.h/2;
+  const inBody = (ptLocal.x>=-halfW && ptLocal.x<=halfW && ptLocal.y>=-halfH && ptLocal.y<=halfH);
+  const r = HANDLE_SIZE/2;
+  const inResize = (ptLocal.x>=halfW-r && ptLocal.x<=halfW+r && ptLocal.y>=halfH-r && ptLocal.y<=halfH+r);
+  const rotY = -halfH - ROT_HANDLE_OFFSET;
+  const inRotate = ((ptLocal.x-0)**2 + (ptLocal.y-rotY)**2) <= (HANDLE_SIZE*0.6)**2;
+  return { inBody, inResize, inRotate };
+}
+function hitTestItem(L){
+  const pg=currentPage();
+  for (let i=pg.items.length-1;i>=0;i--){
+    const it=pg.items[i]; const local=worldToLocal(L,it); const h=localHitTest(local,it);
+    if (h.inRotate) return {kind:'rotate', idx:i};
+    if (h.inResize) return {kind:'resize', idx:i};
+    if (h.inBody)   return {kind:'body',   idx:i};
   }
-  return { kind:'none', idx:-1 };
+  return {kind:'none', idx:-1};
 }
 
-canvas.addEventListener('pointerdown', (e)=>{
-  e.preventDefault();
-  canvas.setPointerCapture(e.pointerId);
-  const pt = getEventPoint(e);
-  pointers.set(e.pointerId, pt);
+/* =========================
+   入力処理：描画／選択／パンピンチ
+========================= */
+const pointers=new Map();
+let pinchStart=null; // {mid,dist,view}
+let dragState=null;  // {kind:'move'|'resize'|'rotate', idx, start, itemStart, startAngleScreen?}
+let selectedIdx=-1;
 
-  if (tool === 'select') {
-    const L = screenToLogical(pt);
-    const hit = hitTestItem(L);
-    if (pointers.size === 1) {
-      if (hit.kind === 'handle') {
-        selectedIdx = hit.idx;
-        dragState = { kind:'resize', idx:selectedIdx, start:L, itemStart:{ ...items[selectedIdx] } };
-      } else if (hit.kind === 'body') {
-        selectedIdx = hit.idx;
-        dragState = { kind:'move', idx:selectedIdx, start:L, itemStart:{ ...items[selectedIdx] } };
+function getEventPoint(e){ const r=canvas.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+function twoFingerInfo(){ const arr=[...pointers.values()]; const p0=arr[0],p1=arr[1];
+  return { mid:{x:(p0.x+p1.x)/2, y:(p0.y+p1.y)/2}, dist:Math.hypot(p1.x-p0.x, p1.y-p0.y) }; }
+function angleTo(it, ptWorld){ const {cx,cy}=getItemCenter(it); return Math.atan2(ptWorld.y-cy, ptWorld.x-cx); }
+
+canvas.addEventListener('pointerdown',(e)=>{
+  e.preventDefault(); canvas.setPointerCapture(e.pointerId);
+  const pt=getEventPoint(e); pointers.set(e.pointerId, pt);
+  const pg=currentPage();
+
+  if (tool==='select'){
+    const L=screenToLogical(pt); const hit=hitTestItem(L);
+    if (pointers.size===1){
+      selectedIdx = (hit.idx>=0)? hit.idx : -1;
+      if (selectedIdx>=0){
+        const it=pg.items[selectedIdx];
+        if (hit.kind==='rotate' && (it.type==='implant'||it.type==='crown')){
+          dragState={kind:'rotate', idx:selectedIdx, start=L, itemStart:{...it}, startAngleScreen:angleTo(it,L)};
+        } else if (hit.kind==='resize'){
+          dragState={kind:'resize', idx:selectedIdx, start=L, itemStart:{...it}};
+        } else if (hit.kind==='body'){
+          dragState={kind:'move', idx:selectedIdx, start=L, itemStart:{...it}};
+        } else {
+          dragState=null;
+        }
       } else {
-        selectedIdx = -1; dragState = null;
+        dragState=null;
       }
       redraw();
     }
-    if (pointers.size === 2) {
-      const { mid, dist } = twoFingerInfo();
-      pinchStart = { mid, dist, view:{...view} };
+    if (pointers.size===2){
+      const {mid,dist}=twoFingerInfo(); pinchStart={mid,dist,view:{...view}};
     }
     return;
   }
 
-  // 描画（pen/hl）
-  if (pointers.size === 1) {
-    drawing = true;
-    current = { mode:tool, width:(tool==='pen'?lineWidthPen:lineWidthHL), points:[ screenToLogical(pt) ] };
-  } else if (pointers.size === 2) {
-    const { mid, dist } = twoFingerInfo();
-    pinchStart = { mid, dist, view:{...view} };
+  // 描画
+  if (pointers.size===1){
+    drawing=true;
+    current={mode:tool, color:(tool==='pen'?penColor:undefined), width:(tool==='pen'?lineWidthPen:lineWidthHL), points:[screenToLogical(pt)]};
+  } else if (pointers.size===2){
+    const {mid,dist}=twoFingerInfo(); pinchStart={mid,dist,view:{...view}};
   }
   redraw();
-}, { passive:false });
+},{passive:false});
 
-canvas.addEventListener('pointermove', (e)=>{
+canvas.addEventListener('pointermove',(e)=>{
   if (!pointers.has(e.pointerId)) return;
   e.preventDefault();
   pointers.set(e.pointerId, getEventPoint(e));
+  const pg=currentPage();
 
-  if (tool === 'select') {
-    if (pointers.size === 1 && dragState && selectedIdx >= 0) {
-      const L = screenToLogical(pointers.get(e.pointerId));
-      const it = items[selectedIdx];
-      if (dragState.kind === 'move') {
-        const dx = L.x - dragState.start.x, dy = L.y - dragState.start.y;
-        it.x = dragState.itemStart.x + dx; it.y = dragState.itemStart.y + dy;
-      } else if (dragState.kind === 'resize') {
-        const dw = L.x - dragState.start.x, dh = L.y - dragState.start.y;
-        it.w = Math.max(20, dragState.itemStart.w + dw);
-        it.h = Math.max(20, dragState.itemStart.h + dh);
+  if (tool==='select'){
+    if (pointers.size===1 && dragState && selectedIdx>=0){
+      const L=screenToLogical(pointers.get(e.pointerId));
+      const it=pg.items[selectedIdx];
+      if (dragState.kind==='move'){
+        const dx=L.x-dragState.start.x, dy=L.y-dragState.start.y;
+        it.x=dragState.itemStart.x+dx; it.y=dragState.itemStart.y+dy;
+      } else if (dragState.kind==='resize'){
+        const localNow=worldToLocal(L, dragState.itemStart);
+        const halfW0=dragState.itemStart.w/2, halfH0=dragState.itemStart.h/2;
+        let newW=Math.max(20, (localNow.x + halfW0)*2);
+        let newH=Math.max(20, (localNow.y + halfH0)*2);
+        const {cx,cy}=getItemCenter(dragState.itemStart);
+        it.w=newW; it.h=newH; it.x=cx-it.w/2; it.y=cy-it.h/2;
+      } else if (dragState.kind==='rotate'){
+        const ang0=dragState.startAngleScreen; const ang1=angleTo(dragState.itemStart,L);
+        it.angle=(dragState.itemStart.angle||0)+(ang1-ang0);
       }
       redraw(); return;
     }
-    if (pointers.size === 2) {
-      const { mid, dist } = twoFingerInfo();
-      if (!pinchStart) return;
-      const base = pinchStart.view;
-      let s = base.scale * (dist / pinchStart.dist);
-      s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
-      const Lx = (pinchStart.mid.x - base.tx) / base.scale;
-      const Ly = (pinchStart.mid.y - base.ty) / base.scale;
-      view.scale = s; view.tx = mid.x - Lx * s; view.ty = mid.y - Ly * s;
-      redraw(); return;
+    if (pointers.size===2){
+      const {mid,dist}=twoFingerInfo(); if (!pinchStart) return;
+      const base=pinchStart.view; let s=base.scale*(dist/pinchStart.dist);
+      s=Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+      const Lx=(pinchStart.mid.x-base.tx)/base.scale; const Ly=(pinchStart.mid.y-base.ty)/base.scale;
+      view.scale=s; view.tx=mid.x-Lx*s; view.ty=mid.y-Ly*s; redraw(); return;
     }
     return;
   }
 
-  // 描画モード
-  if (pointers.size === 1 && drawing && current) {
-    current.points.push( screenToLogical(pointers.get(e.pointerId)) );
-    redraw();
-  } else if (pointers.size === 2 && pinchStart) {
-    const { mid, dist } = twoFingerInfo();
-    const base = pinchStart.view;
-    let s = base.scale * (dist / pinchStart.dist);
-    s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
-    const Lx = (pinchStart.mid.x - base.tx) / base.scale;
-    const Ly = (pinchStart.mid.y - base.ty) / base.scale;
-    view.scale = s; view.tx = mid.x - Lx * s; view.ty = mid.y - Ly * s;
-    redraw();
+  // 描画
+  if (pointers.size===1 && drawing && current){
+    current.points.push(screenToLogical(pointers.get(e.pointerId))); redraw();
+  } else if (pointers.size===2 && pinchStart){
+    const {mid,dist}=twoFingerInfo(); const base=pinchStart.view; let s=base.scale*(dist/pinchStart.dist);
+    s=Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+    const Lx=(pinchStart.mid.x-base.tx)/base.scale; const Ly=(pinchStart.mid.y-base.ty)/base.scale;
+    view.scale=s; view.tx=mid.x-Lx*s; view.ty=mid.y-Ly*s; redraw();
   }
-}, { passive:false });
+},{passive:false});
 
-canvas.addEventListener('pointerup', (e)=>{
+canvas.addEventListener('pointerup',(e)=>{
   e.preventDefault();
+  const pg=currentPage();
 
-  if (tool === 'select') {
-    dragState = null;
-    pointers.delete(e.pointerId);
-    if (pointers.size < 2) pinchStart = null;
-    return;
+  if (tool==='select'){ dragState=null; pointers.delete(e.pointerId); if (pointers.size<2) pinchStart=null; return; }
+
+  if (drawing && current && pointers.size===1){
+    const pt=pointers.get(e.pointerId); if (pt) current.points.push(screenToLogical(pt));
+    pg.strokes.push(current);
   }
+  drawing=false; current=null;
 
-  if (drawing && current && pointers.size === 1) {
-    const pt = pointers.get(e.pointerId);
-    if (pt) current.points.push( screenToLogical(pt) );
-    strokes.push(current);
-  }
-  drawing = false; current = null;
+  pointers.delete(e.pointerId); if (pointers.size<2) pinchStart=null; redraw();
+},{passive:false});
 
-  pointers.delete(e.pointerId);
-  if (pointers.size < 2) pinchStart = null;
-  redraw();
-}, { passive:false });
-
-canvas.addEventListener('pointercancel', (e)=>{
-  e.preventDefault();
-  drawing = false; current = null; dragState = null;
-  pointers.delete(e.pointerId);
-  if (pointers.size < 2) pinchStart = null;
-  redraw();
-}, { passive:false });
+canvas.addEventListener('pointercancel',(e)=>{
+  e.preventDefault(); drawing=false; current=null; dragState=null;
+  pointers.delete(e.pointerId); if (pointers.size<2) pinchStart=null; redraw();
+},{passive:false});
 
 /* =========================
-   8) ツールバー動作
+   ツール・ページ操作・保存
 ========================= */
-const btns = {
-  pen : document.getElementById('penBtn'),
-  hl  : document.getElementById('hlBtn'),
-  sel : document.getElementById('selectBtn')
-};
-function setTool(next) {
-  tool = next;
+const btns={ pen:document.getElementById('penBtn'), hl:document.getElementById('hlBtn'), sel:document.getElementById('selectBtn') };
+function setTool(next){ tool=next;
   btns.pen.classList.toggle('active', tool==='pen');
   btns.hl .classList.toggle('active', tool==='hl');
   btns.sel.classList.toggle('active', tool==='select');
-  if (tool!=='select') { selectedIdx = -1; dragState=null; redraw(); }
+  if (tool!=='select'){ selectedIdx=-1; dragState=null; redraw(); }
 }
-btns.pen.onclick = ()=> setTool('pen');
-btns.hl.onclick  = ()=> setTool('hl');
-btns.sel.onclick = ()=> setTool('select');
+btns.pen.onclick=()=>setTool('pen');
+btns.hl.onclick =()=>setTool('hl');
+btns.sel.onclick=()=>setTool('select');
 
-document.getElementById('undoBtn').onclick = ()=>{
-  if (current) { current=null; drawing=false; redraw(); return; }
-  if (strokes.length>0) { strokes.pop(); redraw(); return; }
-  if (items.length>0) { items.pop(); selectedIdx=-1; redraw(); return; }
+document.getElementById('toggleLinesBtn').onclick=()=>{ showLines=!showLines; redraw(); };
+
+document.getElementById('undoBtn').onclick=()=>{
+  const pg=currentPage();
+  if (current){ current=null; drawing=false; redraw(); return; }
+  if (pg.strokes.length>0){ pg.strokes.pop(); redraw(); return; }
+  if (pg.items.length>0){ pg.items.pop(); selectedIdx=-1; redraw(); return; }
 };
-document.getElementById('clearPenBtn').onclick = ()=> { strokes.length=0; redraw(); };
-document.getElementById('clearAllBtn').onclick = ()=>{
-  if (!confirm('背景/スタンプ/描画をすべて消去します。よろしいですか？')) return;
-  strokes.length=0; items.length=0; selectedIdx=-1; bgImg=null; bgSize={w:0,h:0}; redraw();
+document.getElementById('clearPenBtn').onclick=()=>{ currentPage().strokes.length=0; redraw(); };
+document.getElementById('clearAllBtn').onclick=()=>{
+  if (!confirm('現在ページの背景/スタンプ/描画をすべて消去します。')) return;
+  const pg=currentPage(); pg.strokes.length=0; pg.items.length=0; pg.bgImg=null; pg.bgSize={w:0,h:0}; selectedIdx=-1; redraw();
 };
-document.getElementById('saveBtn').onclick = ()=>{
-  const a = document.createElement('a');
-  a.download = `consult_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.png`;
-  a.href = canvas.toDataURL('image/png');
-  a.click();
+document.getElementById('saveBtn').onclick=()=>{
+  const a=document.createElement('a');
+  a.download=`consult_page${pageIndex+1}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.png`;
+  a.href=canvas.toDataURL('image/png'); a.click();
 };
+
+/* ペン色 */
+[['colorBlack','#111'],['colorRed','#e11d48'],['colorBlue','#2563eb'],['colorYel','#f59e0b']].forEach(([id,col])=>{
+  const el=document.getElementById(id);
+  el.addEventListener('click', ()=>{
+    ['colorBlack','colorRed','colorBlue','colorYel'].forEach(i=>document.getElementById(i).classList.remove('active'));
+    el.classList.add('active'); penColor=col;
+  });
+});
+
+/* ページ操作 */
+document.getElementById('addPageBtn').onclick=()=>{
+  pages.splice(pageIndex+1, 0, makeEmptyPage());
+  pageIndex++; selectedIdx=-1; redraw();
+};
+document.getElementById('prevPageBtn').onclick=()=>{ if (pageIndex>0){ pageIndex--; selectedIdx=-1; redraw(); } };
+document.getElementById('nextPageBtn').onclick=()=>{ if (pageIndex<pages.length-1){ pageIndex++; selectedIdx=-1; redraw(); } };
+document.getElementById('deletePageBtn').onclick=()=>{
+  if (pages.length===1){ alert('これ以上削除できません'); return; }
+  if (!confirm(`ページ${pageIndex+1}を削除しますか？`)) return;
+  pages.splice(pageIndex,1);
+  pageIndex = Math.max(0, Math.min(pageIndex, pages.length-1));
+  selectedIdx=-1; redraw();
+};
+function updatePageIndicator(){
+  const el=document.getElementById('pageIndicator');
+  el.textContent = `${pageIndex+1} / ${pages.length}`;
+}
 
 /* =========================
-   9) ユーティリティ
+   説明QRプリセット（localStorage）
 ========================= */
-function centerOfCanvas() {
-  const r = canvas.getBoundingClientRect();
-  return { x:r.width/2, y:r.height/2 };
+const PRESET_KEY = 'consult_qr_presets_v1';
+function loadPresets(){
+  const raw = localStorage.getItem(PRESET_KEY);
+  let presets = [];
+  if (raw){ try{ presets = JSON.parse(raw)||[]; }catch{} }
+  if (presets.length===0){
+    presets = [
+      {label:'インプラント説明', data:'https://example.com/implant'},
+      {label:'被せ物の種類', data:'https://example.com/crown'},
+      {label:'治療費用について', data:'https://example.com/price'}
+    ];
+    localStorage.setItem(PRESET_KEY, JSON.stringify(presets));
+  }
+  return presets;
 }
+function savePresets(list){ localStorage.setItem(PRESET_KEY, JSON.stringify(list)); }
+function refreshPresetSelect(){
+  const sel = document.getElementById('qrPresetSelect');
+  const presets = loadPresets();
+  sel.innerHTML = '';
+  presets.forEach((p,i)=>{
+    const opt = document.createElement('option');
+    opt.value = String(i); opt.textContent = p.label;
+    sel.appendChild(opt);
+  });
+}
+document.getElementById('placePresetBtn').onclick=()=>{
+  const i = parseInt(document.getElementById('qrPresetSelect').value, 10);
+  const list = loadPresets();
+  if (isNaN(i) || !list[i]) { alert('候補を選択してください'); return; }
+  placeQR(list[i].data);
+};
+document.getElementById('addPresetBtn').onclick=()=>{
+  const label = document.getElementById('presetLabel').value.trim();
+  const data  = document.getElementById('presetData').value.trim();
+  if (!label || !data){ alert('ラベルとURL/テキストを入力してください'); return; }
+  const list = loadPresets(); list.push({label, data}); savePresets(list);
+  document.getElementById('presetLabel').value=''; document.getElementById('presetData').value='';
+  refreshPresetSelect(); alert('候補を追加しました');
+};
 
-/* =========================
-   10) 初期化
-========================= */
-function init(){ setCanvasSize(); redraw(); }
-init();
+/* ユーティリティ */
+function centerOfCanvas(){ const r=canvas.getBoundingClientRect(); return {x:r.width/2, y:r.height/2}; }
+
+/* 初期化 */
+refreshPresetSelect();
+setCanvasSize();
 </script>
 </body>
 </html>
-
