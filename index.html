@@ -40,11 +40,33 @@
   #estimateEditor { display:none; }
   #estimateEditor h2 { display:flex; justify-content:space-between; align-items:center; }
   #estimateRows { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
-  .estimate-row { display:grid; grid-template-columns:140px 1.2fr 0.7fr 1fr 1fr auto; gap:8px; align-items:center; }
+  .estimate-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; align-items:flex-start; }
   .estimate-row select, .estimate-row input { padding:6px 8px; }
-  .estimate-row .estimate-note { min-width:0; min-height:38px; cursor:text; }
-  .estimate-tooth { display:flex; gap:4px; }
-  .estimate-tooth select { flex:1; min-width:0; }
+  .estimate-row select, .estimate-row input, .estimate-row textarea { width:100%; }
+  .estimate-row .estimate-tooth { display:flex; gap:4px; grid-column:1 / -1; }
+  .estimate-row .estimate-tooth select { flex:1; min-width:0; }
+  .estimate-row .estimate-category,
+  .estimate-row .estimate-treatment,
+  .estimate-row .estimate-note { grid-column:1 / -1; }
+  .estimate-row .estimate-note { min-width:0; min-height:48px; cursor:text; }
+  .estimate-row .estimate-quantity { grid-column:1 / 2; }
+  .estimate-row .estimate-price { grid-column:2 / 3; }
+  .estimate-row .estimate-remove { grid-column:2 / 3; justify-self:end; align-self:center; }
+  @media (min-width: 1200px) {
+    #sidebar .estimate-row {
+      grid-template-columns:140px 1.2fr 0.9fr 1fr 1fr auto;
+      align-items:center;
+    }
+    #sidebar .estimate-row .estimate-tooth,
+    #sidebar .estimate-row .estimate-category,
+    #sidebar .estimate-row .estimate-treatment,
+    #sidebar .estimate-row .estimate-quantity,
+    #sidebar .estimate-row .estimate-price {
+      grid-column:auto;
+    }
+    #sidebar .estimate-row .estimate-note { grid-column:1 / span 5; min-height:38px; }
+    #sidebar .estimate-row .estimate-remove { grid-column:6; }
+  }
   .mini-btn { padding:6px 10px; font-size:12px; border-radius:8px; }
   .estimate-summary { margin-top:14px; padding-top:10px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
   .estimate-summary strong { font-size:16px; }
@@ -727,6 +749,7 @@ function createEstimateRowElement(row, index, est){
   wrapper.appendChild(toothWrapper);
 
   const categorySelect = document.createElement('select');
+  categorySelect.classList.add('estimate-category');
   const catBlank = document.createElement('option');
   catBlank.value = '';
   catBlank.textContent = '治療種類';
@@ -741,15 +764,18 @@ function createEstimateRowElement(row, index, est){
   wrapper.appendChild(categorySelect);
 
   const treatmentSelect = document.createElement('select');
+  treatmentSelect.classList.add('estimate-treatment');
   populateTreatmentOptions(treatmentSelect, row.category);
   treatmentSelect.value = row.treatment || '';
   wrapper.appendChild(treatmentSelect);
 
   const quantitySelect = document.createElement('select');
+  quantitySelect.classList.add('estimate-quantity');
   buildQuantityOptions(quantitySelect, row.quantity || 1);
   wrapper.appendChild(quantitySelect);
 
   const priceInput = document.createElement('input');
+  priceInput.classList.add('estimate-price');
   priceInput.type = 'number';
   priceInput.min = '0';
   priceInput.step = '100';
@@ -765,6 +791,7 @@ function createEstimateRowElement(row, index, est){
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'mini-btn';
+  removeBtn.classList.add('estimate-remove');
   removeBtn.textContent = '削除';
   wrapper.appendChild(removeBtn);
 
