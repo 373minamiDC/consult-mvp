@@ -22,8 +22,10 @@
   .muted { color:#6b7280; font-size:12px; margin-top:6px; }
   button, label.as-btn, select, input[type=text], input[type=number], textarea {
     font-size:14px; border:1px solid var(--line); border-radius:10px; background:#fff; color:#111827;
-    padding:8px 10px; box-sizing:border-box; cursor:pointer;
+    padding:8px 10px; box-sizing:border-box;
   }
+  button, label.as-btn, select { cursor:pointer; }
+  input[type=text], input[type=number], textarea { cursor:text; }
   button:hover, label.as-btn:hover { background:var(--hover); }
   button.active { outline:2px solid var(--accent); outline-offset:-2px; }
   input[type=file] { display:none; }
@@ -40,32 +42,46 @@
   #estimateEditor { display:none; }
   #estimateEditor h2 { display:flex; justify-content:space-between; align-items:center; }
   #estimateRows { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
-  .estimate-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; align-items:flex-start; }
+  .estimate-row {
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+    align-items:flex-start;
+    padding:12px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:#f9fafb;
+  }
   .estimate-row select, .estimate-row input { padding:6px 8px; }
   .estimate-row select, .estimate-row input, .estimate-row textarea { width:100%; }
-  .estimate-row .estimate-tooth { display:flex; gap:4px; grid-column:1 / -1; }
-  .estimate-row .estimate-tooth select { flex:1; min-width:0; }
+  .estimate-row .estimate-tooth {
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0,1fr));
+    gap:6px;
+    grid-column:1 / -1;
+  }
+  .estimate-row .estimate-tooth select { min-width:0; }
   .estimate-row .estimate-category,
   .estimate-row .estimate-treatment,
-  .estimate-row .estimate-note { grid-column:1 / -1; }
-  .estimate-row .estimate-note { min-width:0; min-height:48px; cursor:text; }
-  .estimate-row .estimate-quantity { grid-column:1 / 2; }
-  .estimate-row .estimate-price { grid-column:2 / 3; }
-  .estimate-row .estimate-remove { grid-column:2 / 3; justify-self:end; align-self:center; }
-  @media (min-width: 1200px) {
-    #sidebar .estimate-row {
-      grid-template-columns:140px 1.2fr 0.9fr 1fr 1fr auto;
+  .estimate-row .estimate-quantity,
+  .estimate-row .estimate-price,
+  .estimate-row .estimate-note {
+    grid-column:1 / -1;
+  }
+  .estimate-row .estimate-note { min-width:0; min-height:52px; }
+  .estimate-row .estimate-remove { grid-column:1 / -1; justify-self:end; align-self:center; }
+  @media (min-width: 900px) {
+    .estimate-row {
+      grid-template-columns:140px 1.1fr 1.1fr 120px 150px auto;
       align-items:center;
     }
-    #sidebar .estimate-row .estimate-tooth,
-    #sidebar .estimate-row .estimate-category,
-    #sidebar .estimate-row .estimate-treatment,
-    #sidebar .estimate-row .estimate-quantity,
-    #sidebar .estimate-row .estimate-price {
-      grid-column:auto;
-    }
-    #sidebar .estimate-row .estimate-note { grid-column:1 / span 5; min-height:38px; }
-    #sidebar .estimate-row .estimate-remove { grid-column:6; }
+    .estimate-row .estimate-tooth { grid-column:1; grid-template-columns:repeat(3, minmax(0,1fr)); }
+    .estimate-row .estimate-category { grid-column:2; }
+    .estimate-row .estimate-treatment { grid-column:3; }
+    .estimate-row .estimate-quantity { grid-column:4; }
+    .estimate-row .estimate-price { grid-column:5; }
+    .estimate-row .estimate-note { grid-column:1 / span 5; min-height:48px; }
+    .estimate-row .estimate-remove { grid-column:6; }
   }
   .mini-btn { padding:6px 10px; font-size:12px; border-radius:8px; }
   .estimate-summary { margin-top:14px; padding-top:10px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
