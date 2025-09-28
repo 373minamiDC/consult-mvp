@@ -40,9 +40,11 @@
   #estimateEditor { display:none; }
   #estimateEditor h2 { display:flex; justify-content:space-between; align-items:center; }
   #estimateRows { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
-  .estimate-row { display:grid; grid-template-columns:120px 1.2fr 0.7fr 1fr 1fr auto; gap:8px; align-items:center; }
+  .estimate-row { display:grid; grid-template-columns:140px 1.2fr 0.7fr 1fr 1fr auto; gap:8px; align-items:center; }
   .estimate-row select, .estimate-row input { padding:6px 8px; }
-  .estimate-row .estimate-note { min-width:0; }
+  .estimate-row .estimate-note { min-width:0; min-height:38px; cursor:text; }
+  .estimate-tooth { display:flex; gap:4px; }
+  .estimate-tooth select { flex:1; min-width:0; }
   .mini-btn { padding:6px 10px; font-size:12px; border-radius:8px; }
   .estimate-summary { margin-top:14px; padding-top:10px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
   .estimate-summary strong { font-size:16px; }
@@ -229,7 +231,9 @@ let penColor = '#111'; // 初期は黒
 
 const ESTIMATE_INTEREST_RATE = 0.039; // 年利3.9%
 const currencyFormatter = new Intl.NumberFormat('ja-JP');
-const TEETH_OPTIONS = Array.from({length:32}, (_,i)=>String(i+1));
+const TOOTH_SIDE_OPTIONS = ['', '右', '左'];
+const TOOTH_VERTICAL_OPTIONS = ['', '上', '下'];
+const TOOTH_NUMBER_OPTIONS = Array.from({length:8}, (_,i)=>String(i+1));
 const QUANTITY_OPTIONS = Array.from({length:99}, (_,i)=>i+1);
 const TREATMENT_GROUPS = [
   {
@@ -651,23 +655,76 @@ function populateTreatmentOptions(selectEl, categoryId){
   }
 }
 
+function parseToothValue(value){
+  const result = { side:'', arch:'', number:'' };
+  if (typeof value !== 'string') return result;
+  const match = value.match(/(右|左)(上|下)([1-8])/);
+  if (!match) return result;
+  result.side = match[1];
+  result.arch = match[2];
+  result.number = match[3];
+  return result;
+}
+
+function combineToothValue(side, arch, number){
+  const validSide = side === '右' || side === '左' ? side : '';
+  const validArch = arch === '上' || arch === '下' ? arch : '';
+  const numStr = TOOTH_NUMBER_OPTIONS.includes(String(number)) ? String(number) : '';
+  return (validSide && validArch && numStr) ? `${validSide}${validArch}${numStr}` : '';
+}
+
 function createEstimateRowElement(row, index, est){
   const wrapper = document.createElement('div');
   wrapper.className = 'estimate-row';
 
-  const toothSelect = document.createElement('select');
-  const blankOpt = document.createElement('option');
-  blankOpt.value = '';
-  blankOpt.textContent = '部位';
-  toothSelect.appendChild(blankOpt);
-  TEETH_OPTIONS.forEach(code=>{
+  const toothWrapper = document.createElement('div');
+  toothWrapper.className = 'estimate-tooth';
+
+  const sideSelect = document.createElement('select');
+  const sidePlaceholder = document.createElement('option');
+  sidePlaceholder.value = '';
+  sidePlaceholder.textContent = '左右';
+  sideSelect.appendChild(sidePlaceholder);
+  TOOTH_SIDE_OPTIONS.filter(Boolean).forEach(label=>{
     const opt = document.createElement('option');
-    opt.value = code;
-    opt.textContent = code;
-    toothSelect.appendChild(opt);
+    opt.value = label;
+    opt.textContent = label;
+    sideSelect.appendChild(opt);
   });
-  toothSelect.value = row.tooth || '';
-  wrapper.appendChild(toothSelect);
+
+  const archSelect = document.createElement('select');
+  const archPlaceholder = document.createElement('option');
+  archPlaceholder.value = '';
+  archPlaceholder.textContent = '上下';
+  archSelect.appendChild(archPlaceholder);
+  TOOTH_VERTICAL_OPTIONS.filter(Boolean).forEach(label=>{
+    const opt = document.createElement('option');
+    opt.value = label;
+    opt.textContent = label;
+    archSelect.appendChild(opt);
+  });
+
+  const numberSelect = document.createElement('select');
+  const numberPlaceholder = document.createElement('option');
+  numberPlaceholder.value = '';
+  numberPlaceholder.textContent = '1-8';
+  numberSelect.appendChild(numberPlaceholder);
+  TOOTH_NUMBER_OPTIONS.forEach(num=>{
+    const opt = document.createElement('option');
+    opt.value = num;
+    opt.textContent = num;
+    numberSelect.appendChild(opt);
+  });
+
+  const parsedTooth = parseToothValue(row.tooth || '');
+  sideSelect.value = parsedTooth.side || '';
+  archSelect.value = parsedTooth.arch || '';
+  numberSelect.value = parsedTooth.number || '';
+
+  toothWrapper.appendChild(sideSelect);
+  toothWrapper.appendChild(archSelect);
+  toothWrapper.appendChild(numberSelect);
+  wrapper.appendChild(toothWrapper);
 
   const categorySelect = document.createElement('select');
   const catBlank = document.createElement('option');
@@ -699,8 +756,7 @@ function createEstimateRowElement(row, index, est){
   priceInput.value = String(Math.round(getRowTotal(row)) || 0);
   wrapper.appendChild(priceInput);
 
-  const noteInput = document.createElement('input');
-  noteInput.type = 'text';
+  const noteInput = document.createElement('textarea');
   noteInput.className = 'estimate-note';
   noteInput.placeholder = '備考';
   noteInput.value = row.note || '';
@@ -712,10 +768,14 @@ function createEstimateRowElement(row, index, est){
   removeBtn.textContent = '削除';
   wrapper.appendChild(removeBtn);
 
-  toothSelect.addEventListener('change', ()=>{
-    row.tooth = toothSelect.value;
+  const updateTooth = ()=>{
+    row.tooth = combineToothValue(sideSelect.value, archSelect.value, numberSelect.value);
     redraw();
-  });
+  };
+
+  sideSelect.addEventListener('change', updateTooth);
+  archSelect.addEventListener('change', updateTooth);
+  numberSelect.addEventListener('change', updateTooth);
 
   categorySelect.addEventListener('change', ()=>{
     row.category = categorySelect.value;
