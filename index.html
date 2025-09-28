@@ -724,17 +724,27 @@ function updatePageIndicator(){
 /* =========================
    説明QRプリセット（localStorage）
 ========================= */
-const PRESET_KEY = 'consult_qr_presets_v1';
+const PRESET_KEY = 'consult_qr_presets_v2';
+const DEFAULT_PRESETS = [
+  {label:'補綴物', data:'https://minami-dentalclinic.com/クラウンによる歯冠修復治療/'},
+  {label:'CR', data:'https://minami-dentalclinic.com/コンポジットレジン修復（cr修復%EF%BC%8Fcr充填）/'},
+  {label:'インレー', data:'https://minami-dentalclinic.com/インレー修復/'},
+  {label:'ブリッジ', data:'https://minami-dentalclinic.com/ブリッジ/'},
+  {label:'歯周治療', data:'https://minami-dentalclinic.com/歯周病治療/'},
+  {label:'抜髄治療', data:'https://minami-dentalclinic.com/抜髄治療/'},
+  {label:'感染根管治療', data:'https://minami-dentalclinic.com/感染根管治療/'},
+  {label:'総義歯', data:'https://minami-dentalclinic.com/総義歯/'},
+  {label:'部分床義歯', data:'https://minami-dentalclinic.com/部分床義歯/'},
+  {label:'インプラント', data:'https://minami-dentalclinic.com/インプラント/'},
+  {label:'中間欠損', data:'https://minami-dentalclinic.com/１歯欠損で両隣に歯がある場合の治療法（インプ/'},
+  {label:'7番欠損', data:'https://minami-dentalclinic.com/７番欠損（６番は残存）時の治療法/'}
+];
 function loadPresets(){
   const raw = localStorage.getItem(PRESET_KEY);
   let presets = [];
   if (raw){ try{ presets = JSON.parse(raw)||[]; }catch{} }
   if (presets.length===0){
-    presets = [
-      {label:'インプラント説明', data:'https://example.com/implant'},
-      {label:'被せ物の種類', data:'https://example.com/crown'},
-      {label:'治療費用について', data:'https://example.com/price'}
-    ];
+    presets = DEFAULT_PRESETS.slice();
     localStorage.setItem(PRESET_KEY, JSON.stringify(presets));
   }
   return presets;
