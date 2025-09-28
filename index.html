@@ -44,8 +44,8 @@
   #estimateRows { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
   .estimate-row {
     display:grid;
-    grid-template-columns:1fr;
     gap:10px;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
     align-items:flex-start;
     padding:12px;
     border:1px solid var(--line);
@@ -64,24 +64,26 @@
   .estimate-row .estimate-category,
   .estimate-row .estimate-treatment,
   .estimate-row .estimate-quantity,
-  .estimate-row .estimate-price,
+  .estimate-row .estimate-price {
+    min-width:0;
+  }
   .estimate-row .estimate-note {
     grid-column:1 / -1;
+    min-width:0;
+    min-height:52px;
   }
-  .estimate-row .estimate-note { min-width:0; min-height:52px; }
-  .estimate-row .estimate-remove { grid-column:1 / -1; justify-self:end; align-self:center; }
-  @media (min-width: 900px) {
+  .estimate-row .estimate-remove {
+    grid-column:2;
+    justify-self:end;
+    align-self:center;
+  }
+  @media (max-width: 600px) {
     .estimate-row {
-      grid-template-columns:140px 1.1fr 1.1fr 120px 150px auto;
-      align-items:center;
+      grid-template-columns:1fr;
     }
-    .estimate-row .estimate-tooth { grid-column:1; grid-template-columns:repeat(3, minmax(0,1fr)); }
-    .estimate-row .estimate-category { grid-column:2; }
-    .estimate-row .estimate-treatment { grid-column:3; }
-    .estimate-row .estimate-quantity { grid-column:4; }
-    .estimate-row .estimate-price { grid-column:5; }
-    .estimate-row .estimate-note { grid-column:1 / span 5; min-height:48px; }
-    .estimate-row .estimate-remove { grid-column:6; }
+    .estimate-row .estimate-remove {
+      grid-column:auto;
+    }
   }
   .mini-btn { padding:6px 10px; font-size:12px; border-radius:8px; }
   .estimate-summary { margin-top:14px; padding-top:10px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
