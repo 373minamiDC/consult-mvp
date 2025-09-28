@@ -410,6 +410,8 @@ const pointers=new Map();
 let pinchStart=null; // {mid,dist,view}
 let dragState=null;  // {kind:'move'|'resize'|'rotate', idx, start, itemStart, startAngleScreen?}
 let selectedIdx=-1;
+let drawing=false;
+let current=null;
 
 function getEventPoint(e){ const r=canvas.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
 function twoFingerInfo(){ const arr=[...pointers.values()]; const p0=arr[0],p1=arr[1];
@@ -428,11 +430,27 @@ canvas.addEventListener('pointerdown',(e)=>{
       if (selectedIdx>=0){
         const it=pg.items[selectedIdx];
         if (hit.kind==='rotate' && (it.type==='implant'||it.type==='crown')){
-          dragState={kind:'rotate', idx:selectedIdx, start=L, itemStart:{...it}, startAngleScreen:angleTo(it,L)};
+          dragState={
+            kind:'rotate',
+            idx:selectedIdx,
+            start:L,
+            itemStart:Object.assign({}, it),
+            startAngleScreen:angleTo(it,L)
+          };
         } else if (hit.kind==='resize'){
-          dragState={kind:'resize', idx:selectedIdx, start=L, itemStart:{...it}};
+          dragState={
+            kind:'resize',
+            idx:selectedIdx,
+            start:L,
+            itemStart:Object.assign({}, it)
+          };
         } else if (hit.kind==='body'){
-          dragState={kind:'move', idx:selectedIdx, start=L, itemStart:{...it}};
+          dragState={
+            kind:'move',
+            idx:selectedIdx,
+            start:L,
+            itemStart:Object.assign({}, it)
+          };
         } else {
           dragState=null;
         }
@@ -442,7 +460,8 @@ canvas.addEventListener('pointerdown',(e)=>{
       redraw();
     }
     if (pointers.size===2){
-      const {mid,dist}=twoFingerInfo(); pinchStart={mid,dist,view:{...view}};
+      const {mid,dist}=twoFingerInfo();
+      pinchStart={mid,dist,view:{ scale:view.scale, tx:view.tx, ty:view.ty }};
     }
     return;
   }
@@ -452,7 +471,8 @@ canvas.addEventListener('pointerdown',(e)=>{
     drawing=true;
     current={mode:tool, color:(tool==='pen'?penColor:undefined), width:(tool==='pen'?lineWidthPen:lineWidthHL), points:[screenToLogical(pt)]};
   } else if (pointers.size===2){
-    const {mid,dist}=twoFingerInfo(); pinchStart={mid,dist,view:{...view}};
+    const {mid,dist}=twoFingerInfo();
+    pinchStart={mid,dist,view:{ scale:view.scale, tx:view.tx, ty:view.ty }};
   }
   redraw();
 },{passive:false});
