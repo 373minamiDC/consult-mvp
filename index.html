@@ -356,8 +356,8 @@ function makeEmptyPage(kind='blank'){
 const view = { scale:1, tx:0, ty:0 };
 const MIN_SCALE = 0.3, MAX_SCALE = 6;
 
-const HANDLE_SIZE = 12;
-const ROT_HANDLE_OFFSET = 24;
+const HANDLE_SIZE = 16;
+const ROT_HANDLE_OFFSET = 28;
 
 /* =========================
    DPRとサイズ
@@ -1155,9 +1155,27 @@ document.getElementById('bgInput').addEventListener('change', (ev)=>{
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = ()=>{
+    const baseW = img.naturalWidth || img.width || 1;
+    const baseH = img.naturalHeight || img.height || 1;
+    const rect = canvas.getBoundingClientRect();
+    const visibleWidth = rect.width / view.scale;
+    const visibleHeight = rect.height / view.scale;
+    const maxWidth = visibleWidth * 0.8;
+    const maxHeight = visibleHeight * 0.8;
+    let fitScale = Math.min(maxWidth / baseW, maxHeight / baseH);
+    if (!Number.isFinite(fitScale) || fitScale <= 0) fitScale = 1;
+    fitScale = Math.min(fitScale, 1);
+    const initialScale = fitScale * 0.9;
+    const scale = initialScale > 0 ? initialScale : fitScale;
+    const w = Math.max(40, baseW * scale);
+    const h = Math.max(40, baseH * scale);
+    const visibleLeft = (-view.tx) / view.scale;
+    const visibleTop = (-view.ty) / view.scale;
+    const x = visibleLeft + (visibleWidth - w) / 2;
+    const y = visibleTop + (visibleHeight - h) / 2;
     const pg=currentPage();
-    pg.bg={ img, x:0, y:0, w:img.naturalWidth, h:img.naturalHeight, angle:0 };
-    selectedIdx=-1; bgSelected=true; redraw(); URL.revokeObjectURL(url);
+    pg.bg={ img, x, y, w, h, angle:0 };
+    selectedIdx=-1; bgSelected=true; redraw(); URL.revokeObjectURL(url); ev.target.value='';
   };
   img.src = url;
 });
@@ -1276,7 +1294,7 @@ function hitTestBackground(L){
 ========================= */
 const pointers=new Map();
 let pinchStart=null; // {mid,dist,view}
-let dragState=null;  // {target:'item'|'bg', kind:'move'|'resize'|'rotate', idx, start, itemStart, startAngleScreen?}
+let dragState=null;  // {target:'item'|'bg', kind:'move'|'resize'|'rotate', idx, start, itemStart, startAngleScreen?, handleStartLocal?}
 let selectedIdx=-1;
 let bgSelected=false;
 let drawing=false;
@@ -1309,12 +1327,14 @@ canvas.addEventListener('pointerdown',(e)=>{
             startAngleScreen:angleTo(it,L)
           };
         } else if (hit.kind==='resize'){
+          const itemCopy = Object.assign({}, it);
           dragState={
             target:'item',
             kind:'resize',
             idx:selectedIdx,
             start:L,
-            itemStart:Object.assign({}, it)
+            itemStart:itemCopy,
+            handleStartLocal:worldToLocal(L, itemCopy)
           };
         } else if (hit.kind==='body'){
           dragState={
@@ -1343,12 +1363,14 @@ canvas.addEventListener('pointerdown',(e)=>{
               startAngleScreen:angleTo(bg,L)
             };
           } else if (bgHit.kind==='resize'){
+            const bgCopy = Object.assign({}, bg);
             dragState={
               target:'bg',
               kind:'resize',
               idx:-1,
               start:L,
-              itemStart:Object.assign({}, bg)
+              itemStart:bgCopy,
+              handleStartLocal:worldToLocal(L, bgCopy)
             };
           } else if (bgHit.kind==='body'){
             dragState={
@@ -1401,9 +1423,15 @@ canvas.addEventListener('pointermove',(e)=>{
           target.x=dragState.itemStart.x+dx; target.y=dragState.itemStart.y+dy;
         } else if (dragState.kind==='resize'){
           const localNow=worldToLocal(L, dragState.itemStart);
-          const halfW0=dragState.itemStart.w/2, halfH0=dragState.itemStart.h/2;
-          let newW=Math.max(20, (localNow.x + halfW0)*2);
-          let newH=Math.max(20, (localNow.y + halfH0)*2);
+          const startLocal = dragState.handleStartLocal || {x:dragState.itemStart.w/2, y:dragState.itemStart.h/2};
+          const ratioX = startLocal.x !== 0 ? localNow.x / startLocal.x : 1;
+          const ratioY = startLocal.y !== 0 ? localNow.y / startLocal.y : 1;
+          let scale = Math.max(ratioX, ratioY);
+          if (!Number.isFinite(scale) || scale <= 0) scale = 0.1;
+          const baseW = dragState.itemStart.w;
+          const baseH = dragState.itemStart.h;
+          const newW = Math.max(40, baseW * scale);
+          const newH = Math.max(40, baseH * scale);
           const {cx,cy}=getItemCenter(dragState.itemStart);
           target.w=newW; target.h=newH; target.x=cx-target.w/2; target.y=cy-target.h/2;
         } else if (dragState.kind==='rotate'){
