@@ -135,7 +135,7 @@
       <h2>表示 / 出力</h2>
       <div class="row">
         <button id="toggleLinesBtn" class="full">罫線 ON/OFF</button>
-        <button id="saveBtn" class="full">PNG保存（このページ）</button>
+        <button id="saveBtn" class="full">PDF保存（全ページ）</button>
       </div>
     </div>
 
@@ -151,6 +151,7 @@
 
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 /* =========================
    基本セットアップ
@@ -635,10 +636,61 @@ document.getElementById('clearAllBtn').onclick=()=>{
   pg.strokes.length=0; pg.items.length=0; pg.bg=null;
   selectedIdx=-1; bgSelected=false; redraw();
 };
-document.getElementById('saveBtn').onclick=()=>{
-  const a=document.createElement('a');
-  a.download=`consult_page${pageIndex+1}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.png`;
-  a.href=canvas.toDataURL('image/png'); a.click();
+document.getElementById('saveBtn').onclick=async()=>{
+  const jspdf = window.jspdf;
+  if (!jspdf || !jspdf.jsPDF){
+    alert('PDF生成ライブラリの読み込みに失敗しました。ページを再読み込みして再試行してください。');
+    return;
+  }
+
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height){
+    alert('キャンバスのサイズが取得できませんでした。');
+    return;
+  }
+
+  const orientation = rect.width >= rect.height ? 'landscape' : 'portrait';
+  const pdf = new jspdf.jsPDF({ orientation, unit:'px', format:[rect.width, rect.height] });
+  const timestamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+
+  const prevState = {
+    pageIndex,
+    selectedIdx,
+    bgSelected,
+    current,
+    view: { ...view }
+  };
+
+  try {
+    for (let i=0;i<pages.length;i++){
+      pageIndex = i;
+      selectedIdx = -1;
+      bgSelected = false;
+      current = null;
+      redraw();
+
+      const dataUrl = await new Promise(resolve=>{
+        requestAnimationFrame(()=> resolve(canvas.toDataURL('image/png')));
+      });
+
+      if (i>0) pdf.addPage([rect.width, rect.height], orientation);
+      pdf.addImage(dataUrl, 'PNG', 0, 0, rect.width, rect.height);
+    }
+
+    pdf.save(`consult_pages_${timestamp}.pdf`);
+  } catch (err) {
+    console.error(err);
+    alert('PDFの作成に失敗しました。もう一度お試しください。');
+  } finally {
+    pageIndex = prevState.pageIndex;
+    selectedIdx = prevState.selectedIdx;
+    bgSelected = prevState.bgSelected;
+    current = prevState.current;
+    view.scale = prevState.view.scale;
+    view.tx = prevState.view.tx;
+    view.ty = prevState.view.ty;
+    redraw();
+  }
 };
 
 /* ペン色 */
