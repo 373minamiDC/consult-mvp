@@ -20,7 +20,7 @@
   .row { display:flex; gap:8px; }
   .full { width:100%; }
   .muted { color:#6b7280; font-size:12px; margin-top:6px; }
-  button, label.as-btn, select, input[type=text] {
+  button, label.as-btn, select, input[type=text], input[type=number], textarea {
     font-size:14px; border:1px solid var(--line); border-radius:10px; background:#fff; color:#111827;
     padding:8px 10px; box-sizing:border-box; cursor:pointer;
   }
@@ -28,11 +28,26 @@
   button.active { outline:2px solid var(--accent); outline-offset:-2px; }
   input[type=file] { display:none; }
   input[type=text] { width:100%; }
+  input[type=number] { width:100%; }
+  textarea { width:100%; resize:vertical; min-height:70px; }
   label.as-btn { display:block; width:100%; text-align:center; }
 
   /* 色スウォッチ */
   .swatch { width:28px; height:28px; border-radius:7px; border:1px solid var(--line); cursor:pointer; }
   .swatch.active { outline:2px solid var(--accent); outline-offset:-2px; }
+
+  /* 見積書エディタ */
+  #estimateEditor { display:none; }
+  #estimateEditor h2 { display:flex; justify-content:space-between; align-items:center; }
+  #estimateRows { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+  .estimate-row { display:grid; grid-template-columns:120px 1.2fr 0.7fr 1fr 1fr auto; gap:8px; align-items:center; }
+  .estimate-row select, .estimate-row input { padding:6px 8px; }
+  .estimate-row .estimate-note { min-width:0; }
+  .mini-btn { padding:6px 10px; font-size:12px; border-radius:8px; }
+  .estimate-summary { margin-top:14px; padding-top:10px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
+  .estimate-summary strong { font-size:16px; }
+  .estimate-loan { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .estimate-loan select { width:auto; min-width:110px; }
 
   /* 右側キャンバス */
   #main { flex:1; display:flex; flex-direction:column; min-width:0; }
@@ -65,6 +80,12 @@
         <button id="addPageBtn" class="full">ページ追加</button>
         <button id="deletePageBtn" class="full">現在ページ削除</button>
       </div>
+      <div class="row" style="margin-top:6px">
+        <select id="newPageTemplate" class="full">
+          <option value="blank">白紙ページ</option>
+          <option value="estimate">見積書ページ</option>
+        </select>
+      </div>
       <div class="muted">※ ページごとに背景・スタンプ・線を保持します</div>
     </div>
 
@@ -74,6 +95,30 @@
       <div class="row"><input id="ptName" class="full" type="text" placeholder="患者名"></div>
       <div class="row" style="margin-top:6px"><input id="ptId" class="full" type="text" placeholder="ID / 診察券番号"></div>
       <div class="muted">左上に小さく表示（保存にも反映）</div>
+    </div>
+
+    <div class="section" id="estimateEditor">
+      <h2>見積書</h2>
+      <div class="muted">見積書ページを選択すると編集できます</div>
+      <div id="estimateRows"></div>
+      <button id="addEstimateRowBtn" class="full" style="margin-top:10px">行を追加</button>
+      <div class="estimate-summary">
+        <strong id="estimateTotalDisplay">合計（税込）：¥0</strong>
+        <div class="estimate-loan">
+          <label for="loanMonthsSelect">デンタルローン回数</label>
+          <select id="loanMonthsSelect">
+            <option value="6">6 回</option>
+            <option value="12">12 回</option>
+            <option value="18">18 回</option>
+            <option value="24">24 回</option>
+            <option value="36">36 回</option>
+            <option value="48">48 回</option>
+            <option value="60">60 回</option>
+          </select>
+          <div>月々約 <span id="estimateMonthlyDisplay">¥0</span></div>
+        </div>
+        <div class="muted">※ 年利3.9%で自動計算されます</div>
+      </div>
     </div>
 
     <!-- 保存・共有 -->
@@ -169,25 +214,97 @@
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d', { alpha:true, desynchronized:true });
 const pane = document.getElementById('canvasPane');
+const estimateEditorEl = document.getElementById('estimateEditor');
+const estimateRowsEl = document.getElementById('estimateRows');
+const estimateTotalDisplayEl = document.getElementById('estimateTotalDisplay');
+const estimateMonthlyDisplayEl = document.getElementById('estimateMonthlyDisplay');
+const loanMonthsSelectEl = document.getElementById('loanMonthsSelect');
+const addEstimateRowBtn = document.getElementById('addEstimateRowBtn');
+const newPageTemplateEl = document.getElementById('newPageTemplate');
 
 let tool = 'pen'; // 'pen' | 'hl' | 'select'
 let lineWidthPen = 3;
 let lineWidthHL  = 16;
 let penColor = '#111'; // 初期は黒
 
+const ESTIMATE_INTEREST_RATE = 0.039; // 年利3.9%
+const currencyFormatter = new Intl.NumberFormat('ja-JP');
+const TEETH_OPTIONS = Array.from({length:32}, (_,i)=>String(i+1));
+const QUANTITY_OPTIONS = Array.from({length:99}, (_,i)=>i+1);
+const TREATMENT_GROUPS = [
+  {
+    id:'inlay', label:'インレー',
+    items:[
+      { id:'ceramic_inlay', label:'セラミックインレー', price:65000 },
+      { id:'zirconia_inlay', label:'ジルコニアインレー', price:70000 },
+      { id:'gold_inlay', label:'ゴールドインレー', price:100000 }
+    ]
+  },
+  {
+    id:'crown', label:'クラウン',
+    items:[
+      { id:'all_ceramic_crown', label:'オールセラミッククラウン', price:130000 },
+      { id:'zirconia_ceramic_crown', label:'ジルコニアセラミッククラウン', price:150000 },
+      { id:'full_zirconia_crown', label:'フルジルコニアクラウン', price:100000 },
+      { id:'metal_bond_crown', label:'メタルボンドクラウン', price:120000 },
+      { id:'gold_crown', label:'ゴールドクラウン', price:180000 }
+    ]
+  },
+  {
+    id:'denture', label:'入れ歯',
+    items:[
+      { id:'metal_base_denture', label:'金属床義歯', price:300000 },
+      { id:'non_clasp_crown', label:'ノンクラスプクラウン', price:100000 }
+    ]
+  },
+  {
+    id:'implant', label:'インプラント',
+    items:[
+      { id:'fixture', label:'フィクスチャー＋オペ料（検査費用含む）', price:275000 },
+      { id:'surgical_guide', label:'サージカルガイド', price:40000 },
+      { id:'provisional_restoration', label:'プロビジョナルレストレーション', price:100000 },
+      { id:'abutment_normal', label:'アバットメント（通常）', price:77000 },
+      { id:'abutment_on1', label:'アバットメント（On1）', price:88000 },
+      { id:'superstructure_zirconia', label:'上部構造（ジルコニアクラウン）', price:140000 },
+      { id:'gbr', label:'GBR（骨造成）', price:80000 },
+      { id:'socket_lift', label:'ソケットリフト', price:100000 },
+      { id:'sinus_lift', label:'サイナスリフト', price:150000 },
+      { id:'locator_abutment', label:'ロケーターアバットメント', price:100000 },
+      { id:'implant_overdenture', label:'インプラント オーバーデンチャー', price:400000 }
+    ]
+  },
+  {
+    id:'hygienist', label:'衛生士メニュー',
+    items:[
+      { id:'pmtc', label:'PMTC', price:13200 },
+      { id:'home_whitening', label:'ホームホワイトニング', price:33000 }
+    ]
+  }
+];
+
+function makeEstimateRow(){
+  return { tooth:'', category:'', treatment:'', unitPrice:0, price:0, quantity:1, note:'' };
+}
+
+function makeEstimateData(){
+  return { rows:[makeEstimateRow()], loanMonths:12, interestRate:ESTIMATE_INTEREST_RATE };
+}
+
 /* 罫線 */
 let showLines = true;
 const LINE_STEP = 30;
 
 /* ページ：各ページごとにデータを持つ */
-let pages = [makeEmptyPage()];
+let pages = [makeEmptyPage('blank')];
 let pageIndex = 0;
 function currentPage(){ return pages[pageIndex]; }
-function makeEmptyPage(){
+function makeEmptyPage(kind='blank'){
   return {
+    kind,
     strokes: [], // {mode,width,color?,points}
     items: [],   // {type,img,x,y,w,h,angle}
-    bg: null     // {img,x,y,w,h,angle}
+    bg: null,    // {img,x,y,w,h,angle}
+    estimate: kind==='estimate' ? makeEstimateData() : null
   };
 }
 
@@ -231,8 +348,13 @@ function redraw(){
 
   const pg = currentPage();
 
-  if (showLines) drawHorizontalLines(LINE_STEP);
-  if (pg.bg) drawPlacedImage(pg.bg);
+  if (pg.kind === 'estimate'){
+    if (pg.bg) drawPlacedImage(pg.bg);
+    drawEstimatePage(pg);
+  } else {
+    if (showLines) drawHorizontalLines(LINE_STEP);
+    if (pg.bg) drawPlacedImage(pg.bg);
+  }
   for (let i=0;i<pg.items.length;i++) drawPlacedImage(pg.items[i]);
   for (const s of pg.strokes) drawStroke(s);
   if (current) drawStroke(current);
@@ -254,6 +376,104 @@ function drawHorizontalLines(step){
   const y0 = Math.floor(startY / step) * step;
   for (let y = y0; y < endY; y += step) { ctx.moveTo(startX, y); ctx.lineTo(endX, y); }
   ctx.stroke();
+  ctx.restore();
+}
+
+function drawEstimatePage(pg){
+  if (!pg.estimate) pg.estimate = makeEstimateData();
+  const est = pg.estimate;
+  if (!Array.isArray(est.rows)) est.rows = [makeEstimateRow()];
+  if (est.rows.length === 0) est.rows.push(makeEstimateRow());
+  for (let i=0;i<est.rows.length;i++) est.rows[i] = normalizeEstimateRow(est.rows[i]);
+  const months = parseInt(est.loanMonths, 10);
+  est.loanMonths = Math.min(60, Math.max(1, Number.isFinite(months) ? months : 12));
+  est.interestRate = Number.isFinite(est.interestRate) ? est.interestRate : ESTIMATE_INTEREST_RATE;
+
+  const rect = canvas.getBoundingClientRect();
+  const marginX = rect.width < 640 ? 24 : 40;
+  const marginY = 70;
+  const availableWidth = Math.max(320, rect.width - marginX * 2);
+  const columnRatios = [0.15, 0.33, 0.12, 0.17, 0.23];
+  const columnWidths = columnRatios.map(r => availableWidth * r);
+  const headerHeight = 46;
+  const rowHeight = 40;
+  const rowCount = Math.max(est.rows.length, 8);
+  const tableHeight = headerHeight + rowHeight * rowCount;
+  const tableTop = marginY;
+  const tableLeft = marginX;
+
+  const columnStarts = [];
+  let runningX = tableLeft;
+  for (let i=0;i<columnWidths.length;i++){
+    columnStarts.push(runningX);
+    runningX += columnWidths[i];
+  }
+
+  ctx.save();
+  ctx.fillStyle = '#111';
+  ctx.font = `${28 / view.scale}px system-ui, sans-serif`;
+  ctx.textBaseline = 'top';
+  ctx.fillText('見積書', tableLeft, marginY - 40);
+
+  ctx.fillStyle = '#f3f4f6';
+  ctx.fillRect(tableLeft, tableTop, availableWidth, headerHeight);
+  ctx.strokeStyle = '#9ca3af';
+  ctx.lineWidth = 1 / view.scale;
+  ctx.strokeRect(tableLeft, tableTop, availableWidth, tableHeight);
+
+  // 縦線
+  ctx.beginPath();
+  for (let i=1;i<columnWidths.length;i++){
+    const x = tableLeft + columnWidths.slice(0, i).reduce((sum,val)=>sum+val,0);
+    ctx.moveTo(x, tableTop);
+    ctx.lineTo(x, tableTop + tableHeight);
+  }
+  ctx.stroke();
+
+  // 横線
+  ctx.beginPath();
+  for (let i=1;i<=rowCount;i++){
+    const y = tableTop + headerHeight + rowHeight * (i-1);
+    ctx.moveTo(tableLeft, y);
+    ctx.lineTo(tableLeft + availableWidth, y);
+  }
+  ctx.stroke();
+
+  const headers = ['部位','治療内容','個数','値段（税込）','備考'];
+  ctx.fillStyle = '#111';
+  ctx.font = `${14 / view.scale}px system-ui, sans-serif`;
+  for (let i=0;i<headers.length;i++){
+    ctx.fillText(headers[i], columnStarts[i] + 10, tableTop + 12);
+  }
+
+  ctx.font = `${13 / view.scale}px system-ui, sans-serif`;
+  const displayRows = est.rows;
+  for (let i=0;i<displayRows.length;i++){
+    const row = displayRows[i];
+    const { group, item } = findTreatment(row.category, row.treatment);
+    const top = tableTop + headerHeight + rowHeight * i + 10;
+    if (row.tooth) ctx.fillText(row.tooth, columnStarts[0] + 10, top);
+    const treatmentLabel = item ? item.label : (row.treatment || '');
+    if (treatmentLabel) ctx.fillText(treatmentLabel, columnStarts[1] + 10, top);
+    if (row.quantity) ctx.fillText(String(row.quantity), columnStarts[2] + 10, top);
+    const total = getRowTotal(row);
+    if (total) ctx.fillText(formatCurrency(total), columnStarts[3] + 10, top);
+    if (row.note) ctx.fillText(row.note, columnStarts[4] + 10, top);
+  }
+
+  const totalAmount = calculateEstimateTotal(est);
+  const summaryTop = tableTop + tableHeight + 30;
+  ctx.font = `${18 / view.scale}px system-ui, sans-serif`;
+  ctx.fillText(`合計（税込）：${formatCurrency(totalAmount)}`, tableLeft, summaryTop);
+
+  const monthly = calculateMonthlyPayment(totalAmount, est.loanMonths, est.interestRate || ESTIMATE_INTEREST_RATE);
+  ctx.font = `${14 / view.scale}px system-ui, sans-serif`;
+  ctx.fillText(`デンタルローン：${est.loanMonths}回払い / 月々約 ${formatCurrency(monthly)}`, tableLeft, summaryTop + 28);
+
+  const interestText = ((est.interestRate || ESTIMATE_INTEREST_RATE) * 100).toFixed(1).replace(/\.0$/, '');
+  ctx.font = `${12 / view.scale}px system-ui, sans-serif`;
+  ctx.fillStyle = '#6b7280';
+  ctx.fillText(`※ 年利 ${interestText}% で試算`, tableLeft, summaryTop + 48);
   ctx.restore();
 }
 
@@ -309,10 +529,325 @@ function drawPatientInfo(){
   ctx.restore();
 }
 
+function normalizeEstimateRow(row){
+  if (!row || typeof row !== 'object') return makeEstimateRow();
+  row.tooth = typeof row.tooth === 'string' ? row.tooth : '';
+  row.category = typeof row.category === 'string' ? row.category : '';
+  row.treatment = typeof row.treatment === 'string' ? row.treatment : '';
+  const qty = parseInt(row.quantity, 10);
+  row.quantity = Math.min(99, Math.max(1, Number.isFinite(qty) ? qty : 1));
+  row.unitPrice = Number.isFinite(row.unitPrice) ? row.unitPrice : Number(row.unitPrice) || 0;
+  const priceNum = Number(row.price);
+  row.price = Number.isFinite(priceNum) ? priceNum : row.unitPrice * row.quantity;
+  row.note = typeof row.note === 'string' ? row.note : '';
+  return row;
+}
+
+function findTreatment(categoryId, treatmentId){
+  const group = TREATMENT_GROUPS.find(g=>g.id===categoryId) || null;
+  const item = group ? (group.items.find(it=>it.id===treatmentId) || null) : null;
+  return { group, item };
+}
+
+function getRowTotal(row){
+  const qty = Math.max(1, parseInt(row.quantity, 10) || 1);
+  if (typeof row.price === 'number' && !Number.isNaN(row.price)) return Math.round(row.price);
+  const base = Number(row.unitPrice) || 0;
+  return Math.round(base * qty);
+}
+
+function calculateEstimateTotal(est){
+  if (!est || !Array.isArray(est.rows)) return 0;
+  return est.rows.reduce((sum,row)=> sum + getRowTotal(row), 0);
+}
+
+function calculateMonthlyPayment(amount, months, annualRate){
+  if (!months || months <= 0 || !amount) return 0;
+  const principal = Math.max(0, amount);
+  const r = annualRate > 0 ? annualRate / 12 : 0;
+  if (r === 0) return principal / months;
+  return principal * r / (1 - Math.pow(1 + r, -months));
+}
+
+function formatCurrency(amount){
+  if (!amount) return '¥0';
+  const rounded = Math.round(amount);
+  return `¥${currencyFormatter.format(rounded)}`;
+}
+
+function ensureEstimateDataForPage(pg){
+  if (!pg) return null;
+  if (!pg.estimate) pg.estimate = makeEstimateData();
+  const est = pg.estimate;
+  if (!Array.isArray(est.rows)) est.rows = [makeEstimateRow()];
+  if (est.rows.length === 0) est.rows.push(makeEstimateRow());
+  for (let i=0;i<est.rows.length;i++) est.rows[i] = normalizeEstimateRow(est.rows[i]);
+  const months = parseInt(est.loanMonths, 10);
+  est.loanMonths = Math.min(60, Math.max(1, Number.isFinite(months) ? months : 12));
+  est.interestRate = Number.isFinite(est.interestRate) ? est.interestRate : ESTIMATE_INTEREST_RATE;
+  return est;
+}
+
+function serializeEstimate(est){
+  if (!est || !Array.isArray(est.rows)) return {
+    rows:[makeEstimateRow()],
+    loanMonths:12,
+    interestRate:ESTIMATE_INTEREST_RATE
+  };
+  return {
+    rows: est.rows.map(row=>{
+      const normalized = normalizeEstimateRow({...row});
+      return {
+        tooth: normalized.tooth || '',
+        category: normalized.category || '',
+        treatment: normalized.treatment || '',
+        quantity: normalized.quantity || 1,
+        unitPrice: Number(normalized.unitPrice) || 0,
+        price: Number(normalized.price) || 0,
+        note: normalized.note || ''
+      };
+    }),
+    loanMonths: Math.min(60, Math.max(1, parseInt(est.loanMonths, 10) || 12)),
+    interestRate: Number.isFinite(est.interestRate) ? est.interestRate : ESTIMATE_INTEREST_RATE
+  };
+}
+
+function buildQuantityOptions(selectEl, value){
+  selectEl.innerHTML = '';
+  QUANTITY_OPTIONS.forEach(num=>{
+    const opt = document.createElement('option');
+    opt.value = String(num);
+    opt.textContent = `${num}`;
+    selectEl.appendChild(opt);
+  });
+  selectEl.value = String(value);
+}
+
+function ensureLoanOption(months){
+  if (!loanMonthsSelectEl) return;
+  const existing = Array.from(loanMonthsSelectEl.options).some(opt=>opt.value===String(months));
+  if (!existing){
+    const opt = document.createElement('option');
+    opt.value = String(months);
+    opt.textContent = `${months} 回`;
+    loanMonthsSelectEl.appendChild(opt);
+  }
+}
+
+function populateTreatmentOptions(selectEl, categoryId){
+  selectEl.innerHTML = '';
+  const blank = document.createElement('option');
+  blank.value = '';
+  blank.textContent = '治療内容';
+  selectEl.appendChild(blank);
+  const group = TREATMENT_GROUPS.find(g=>g.id===categoryId);
+  if (group){
+    group.items.forEach(item=>{
+      const opt = document.createElement('option');
+      opt.value = item.id;
+      opt.textContent = item.label;
+      selectEl.appendChild(opt);
+    });
+  }
+}
+
+function createEstimateRowElement(row, index, est){
+  const wrapper = document.createElement('div');
+  wrapper.className = 'estimate-row';
+
+  const toothSelect = document.createElement('select');
+  const blankOpt = document.createElement('option');
+  blankOpt.value = '';
+  blankOpt.textContent = '部位';
+  toothSelect.appendChild(blankOpt);
+  TEETH_OPTIONS.forEach(code=>{
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = code;
+    toothSelect.appendChild(opt);
+  });
+  toothSelect.value = row.tooth || '';
+  wrapper.appendChild(toothSelect);
+
+  const categorySelect = document.createElement('select');
+  const catBlank = document.createElement('option');
+  catBlank.value = '';
+  catBlank.textContent = '治療種類';
+  categorySelect.appendChild(catBlank);
+  TREATMENT_GROUPS.forEach(group=>{
+    const opt = document.createElement('option');
+    opt.value = group.id;
+    opt.textContent = group.label;
+    categorySelect.appendChild(opt);
+  });
+  categorySelect.value = row.category || '';
+  wrapper.appendChild(categorySelect);
+
+  const treatmentSelect = document.createElement('select');
+  populateTreatmentOptions(treatmentSelect, row.category);
+  treatmentSelect.value = row.treatment || '';
+  wrapper.appendChild(treatmentSelect);
+
+  const quantitySelect = document.createElement('select');
+  buildQuantityOptions(quantitySelect, row.quantity || 1);
+  wrapper.appendChild(quantitySelect);
+
+  const priceInput = document.createElement('input');
+  priceInput.type = 'number';
+  priceInput.min = '0';
+  priceInput.step = '100';
+  priceInput.value = String(Math.round(getRowTotal(row)) || 0);
+  wrapper.appendChild(priceInput);
+
+  const noteInput = document.createElement('input');
+  noteInput.type = 'text';
+  noteInput.className = 'estimate-note';
+  noteInput.placeholder = '備考';
+  noteInput.value = row.note || '';
+  wrapper.appendChild(noteInput);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'mini-btn';
+  removeBtn.textContent = '削除';
+  wrapper.appendChild(removeBtn);
+
+  toothSelect.addEventListener('change', ()=>{
+    row.tooth = toothSelect.value;
+    redraw();
+  });
+
+  categorySelect.addEventListener('change', ()=>{
+    row.category = categorySelect.value;
+    row.treatment = '';
+    row.unitPrice = 0;
+    row.price = 0;
+    populateTreatmentOptions(treatmentSelect, row.category);
+    treatmentSelect.value = '';
+    priceInput.value = '0';
+    updateEstimateSummaryOnly(est);
+    redraw();
+  });
+
+  treatmentSelect.addEventListener('change', ()=>{
+    row.treatment = treatmentSelect.value;
+    const { item } = findTreatment(row.category, row.treatment);
+    if (item){
+      row.unitPrice = item.price;
+      row.price = item.price * row.quantity;
+    } else {
+      row.unitPrice = 0;
+      row.price = 0;
+    }
+    priceInput.value = String(Math.round(getRowTotal(row)) || 0);
+    updateEstimateSummaryOnly(est);
+    redraw();
+  });
+
+  quantitySelect.addEventListener('change', ()=>{
+    const prevQty = row.quantity || 1;
+    const newQty = Math.min(99, Math.max(1, parseInt(quantitySelect.value, 10) || 1));
+    let unit = row.unitPrice;
+    if ((!unit || unit <= 0) && row.price){
+      unit = row.price / prevQty;
+    }
+    row.quantity = newQty;
+    row.unitPrice = unit || 0;
+    row.price = (unit || 0) * newQty;
+    priceInput.value = String(Math.round(getRowTotal(row)) || 0);
+    updateEstimateSummaryOnly(est);
+    redraw();
+  });
+
+  priceInput.addEventListener('input', ()=>{
+    const val = Number(priceInput.value);
+    row.price = Number.isFinite(val) ? val : 0;
+    const qty = row.quantity || 1;
+    row.unitPrice = qty ? (row.price / qty) : row.price;
+    updateEstimateSummaryOnly(est);
+    redraw();
+  });
+
+  noteInput.addEventListener('input', ()=>{
+    row.note = noteInput.value;
+    redraw();
+  });
+
+  removeBtn.addEventListener('click', ()=>{
+    if (est.rows.length <= 1){
+      const blank = makeEstimateRow();
+      Object.assign(row, blank);
+    } else {
+      est.rows.splice(index, 1);
+    }
+    refreshEstimateEditor();
+    redraw();
+  });
+
+  return wrapper;
+}
+
+function updateEstimateSummaryOnly(est){
+  if (!est || !estimateTotalDisplayEl || !estimateMonthlyDisplayEl) return;
+  const total = calculateEstimateTotal(est);
+  estimateTotalDisplayEl.textContent = `合計（税込）：${formatCurrency(total)}`;
+  const monthly = calculateMonthlyPayment(total, est.loanMonths, est.interestRate || ESTIMATE_INTEREST_RATE);
+  estimateMonthlyDisplayEl.textContent = formatCurrency(monthly);
+}
+
+function refreshEstimateEditor(){
+  if (!estimateEditorEl || !estimateRowsEl || !estimateTotalDisplayEl || !estimateMonthlyDisplayEl) return;
+  const pg = currentPage();
+  if (!pg || pg.kind !== 'estimate'){
+    estimateEditorEl.style.display = 'none';
+    return;
+  }
+
+  const est = ensureEstimateDataForPage(pg);
+  estimateEditorEl.style.display = 'block';
+  ensureLoanOption(est.loanMonths);
+  if (loanMonthsSelectEl){
+    loanMonthsSelectEl.value = String(est.loanMonths);
+  }
+
+  estimateRowsEl.innerHTML = '';
+  est.rows.forEach((row, idx)=>{
+    estimateRowsEl.appendChild(createEstimateRowElement(row, idx, est));
+  });
+
+  updateEstimateSummaryOnly(est);
+}
+
+if (addEstimateRowBtn){
+  addEstimateRowBtn.addEventListener('click', ()=>{
+    const pg = currentPage();
+    if (!pg || pg.kind !== 'estimate'){
+      alert('見積書ページを選択してから行を追加してください。');
+      return;
+    }
+    const est = ensureEstimateDataForPage(pg);
+    est.rows.push(makeEstimateRow());
+    refreshEstimateEditor();
+    redraw();
+  });
+}
+
+if (loanMonthsSelectEl){
+  loanMonthsSelectEl.addEventListener('change', ()=>{
+    const pg = currentPage();
+    if (!pg || pg.kind !== 'estimate') return;
+    const months = Math.min(60, Math.max(1, parseInt(loanMonthsSelectEl.value, 10) || 12));
+    pg.estimate.loanMonths = months;
+    loanMonthsSelectEl.value = String(months);
+    refreshEstimateEditor();
+    redraw();
+  });
+}
+
 /* =========================
    患者データ保存 / 読み込み
 ========================= */
-const PATIENT_EXPORT_VERSION = 1;
+const PATIENT_EXPORT_VERSION = 2;
 
 function imageToDataURL(img){
   try {
@@ -385,7 +920,13 @@ async function serializePatientData(){
       };
     }
 
-    serializedPages.push({ strokes, items, bg });
+    const kind = pg.kind === 'estimate' ? 'estimate' : 'blank';
+    const pagePayload = { kind, strokes, items, bg };
+    if (kind === 'estimate'){
+      const est = ensureEstimateDataForPage(pg);
+      pagePayload.estimate = serializeEstimate(est);
+    }
+    serializedPages.push(pagePayload);
   }
 
   const payload = {
@@ -406,7 +947,8 @@ async function restorePatientData(data){
   const newPages = [];
   const pageList = Array.isArray(data.pages) ? data.pages : [];
   for (const pgData of pageList){
-    const pg = makeEmptyPage();
+    const kind = pgData && pgData.kind === 'estimate' ? 'estimate' : 'blank';
+    const pg = makeEmptyPage(kind);
     pg.strokes = Array.isArray(pgData.strokes) ? pgData.strokes.map(s=>({
       mode: s.mode === 'hl' ? 'hl' : 'pen',
       width: typeof s.width === 'number' ? s.width : (s.mode === 'hl' ? lineWidthHL : lineWidthPen),
@@ -453,10 +995,20 @@ async function restorePatientData(data){
       }
     }
 
+    if (kind === 'estimate'){
+      const estData = pgData.estimate || {};
+      const rows = Array.isArray(estData.rows) ? estData.rows.map(r=>normalizeEstimateRow({...r})) : [makeEstimateRow()];
+      pg.estimate.rows = rows.length ? rows : [makeEstimateRow()];
+      const loan = parseInt(estData.loanMonths, 10);
+      pg.estimate.loanMonths = Math.min(60, Math.max(1, Number.isFinite(loan) ? loan : 12));
+      const interest = Number(estData.interestRate);
+      pg.estimate.interestRate = Number.isFinite(interest) ? interest : ESTIMATE_INTEREST_RATE;
+    }
+
     newPages.push(pg);
   }
 
-  pages = newPages.length ? newPages : [makeEmptyPage()];
+  pages = newPages.length ? newPages : [makeEmptyPage('blank')];
   pageIndex = 0;
   selectedIdx = -1;
   bgSelected = false;
@@ -483,6 +1035,7 @@ async function restorePatientData(data){
   }
 
   redraw();
+  refreshEstimateEditor();
 }
 
 function sanitizeFileName(str){
@@ -937,17 +1490,18 @@ document.getElementById('importPatientInput').addEventListener('change', async(e
 
 /* ページ操作 */
 document.getElementById('addPageBtn').onclick=()=>{
-  pages.splice(pageIndex+1, 0, makeEmptyPage());
-  pageIndex++; selectedIdx=-1; bgSelected=false; redraw();
+  const template = newPageTemplateEl ? newPageTemplateEl.value : 'blank';
+  pages.splice(pageIndex+1, 0, makeEmptyPage(template));
+  pageIndex++; selectedIdx=-1; bgSelected=false; redraw(); refreshEstimateEditor();
 };
-document.getElementById('prevPageBtn').onclick=()=>{ if (pageIndex>0){ pageIndex--; selectedIdx=-1; bgSelected=false; redraw(); } };
-document.getElementById('nextPageBtn').onclick=()=>{ if (pageIndex<pages.length-1){ pageIndex++; selectedIdx=-1; bgSelected=false; redraw(); } };
+document.getElementById('prevPageBtn').onclick=()=>{ if (pageIndex>0){ pageIndex--; selectedIdx=-1; bgSelected=false; redraw(); refreshEstimateEditor(); } };
+document.getElementById('nextPageBtn').onclick=()=>{ if (pageIndex<pages.length-1){ pageIndex++; selectedIdx=-1; bgSelected=false; redraw(); refreshEstimateEditor(); } };
 document.getElementById('deletePageBtn').onclick=()=>{
   if (pages.length===1){ alert('これ以上削除できません'); return; }
   if (!confirm(`ページ${pageIndex+1}を削除しますか？`)) return;
   pages.splice(pageIndex,1);
   pageIndex = Math.max(0, Math.min(pageIndex, pages.length-1));
-  selectedIdx=-1; bgSelected=false; redraw();
+  selectedIdx=-1; bgSelected=false; redraw(); refreshEstimateEditor();
 };
 function updatePageIndicator(){
   const el=document.getElementById('pageIndicator');
@@ -1014,6 +1568,7 @@ function centerOfCanvas(){ const r=canvas.getBoundingClientRect(); return {x:r.w
 /* 初期化 */
 refreshPresetSelect();
 setCanvasSize();
+refreshEstimateEditor();
 </script>
 </body>
 </html>
