@@ -176,8 +176,7 @@ function makeEmptyPage(){
   return {
     strokes: [], // {mode,width,color?,points}
     items: [],   // {type,img,x,y,w,h,angle}
-    bgImg: null,
-    bgSize: {w:0,h:0}
+    bg: null     // {img,x,y,w,h,angle}
   };
 }
 
@@ -222,10 +221,12 @@ function redraw(){
   const pg = currentPage();
 
   if (showLines) drawHorizontalLines(LINE_STEP);
-  if (pg.bgImg) ctx.drawImage(pg.bgImg, 0, 0, pg.bgSize.w, pg.bgSize.h);
-  for (let i=0;i<pg.items.length;i++) drawItem(pg.items[i], i===selectedIdx);
+  if (pg.bg) drawPlacedImage(pg.bg);
+  for (let i=0;i<pg.items.length;i++) drawPlacedImage(pg.items[i]);
   for (const s of pg.strokes) drawStroke(s);
   if (current) drawStroke(current);
+  if (pg.bg && bgSelected) drawSelectionHandles(pg.bg);
+  if (selectedIdx>=0 && pg.items[selectedIdx]) drawSelectionHandles(pg.items[selectedIdx]);
 
   drawPatientInfo();
   updatePageIndicator();
@@ -258,26 +259,30 @@ function drawStroke(s){
 
 function getItemCenter(it){ return { cx: it.x + it.w/2, cy: it.y + it.h/2 }; }
 
-function drawItem(it, selected){
+function drawPlacedImage(it){
   const {cx, cy} = getItemCenter(it);
   ctx.save();
   ctx.translate(cx, cy); ctx.rotate(it.angle || 0);
   ctx.drawImage(it.img, -it.w/2, -it.h/2, it.w, it.h);
+  ctx.restore();
+}
 
-  if (selected){
-    ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1 / view.scale;
-    ctx.setLineDash([4 / view.scale, 3 / view.scale]);
-    ctx.strokeRect(-it.w/2, -it.h/2, it.w, it.h);
-    ctx.setLineDash([]);
+function drawSelectionHandles(it){
+  const {cx, cy} = getItemCenter(it);
+  ctx.save();
+  ctx.translate(cx, cy); ctx.rotate(it.angle || 0);
+  ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1 / view.scale;
+  ctx.setLineDash([4 / view.scale, 3 / view.scale]);
+  ctx.strokeRect(-it.w/2, -it.h/2, it.w, it.h);
+  ctx.setLineDash([]);
 
-    const r = HANDLE_SIZE/2;
-    ctx.fillStyle = '#2563eb';
-    ctx.fillRect(it.w/2 - r, it.h/2 - r, HANDLE_SIZE, HANDLE_SIZE); // resize
+  const r = HANDLE_SIZE/2;
+  ctx.fillStyle = '#2563eb';
+  ctx.fillRect(it.w/2 - r, it.h/2 - r, HANDLE_SIZE, HANDLE_SIZE);
 
-    const rotY = -it.h/2 - ROT_HANDLE_OFFSET; // rotate
-    ctx.beginPath(); ctx.moveTo(0, -it.h/2); ctx.lineTo(0, rotY); ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, rotY, HANDLE_SIZE*0.6, 0, Math.PI*2); ctx.fill();
-  }
+  const rotY = -it.h/2 - ROT_HANDLE_OFFSET;
+  ctx.beginPath(); ctx.moveTo(0, -it.h/2); ctx.lineTo(0, rotY); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, rotY, HANDLE_SIZE*0.6, 0, Math.PI*2); ctx.fill();
   ctx.restore();
 }
 
@@ -300,7 +305,11 @@ document.getElementById('bgInput').addEventListener('change', (ev)=>{
   const file = ev.target.files?.[0]; if (!file) return;
   const url = URL.createObjectURL(file);
   const img = new Image();
-  img.onload = ()=>{ const pg=currentPage(); pg.bgImg=img; pg.bgSize={w:img.naturalWidth, h:img.naturalHeight}; redraw(); URL.revokeObjectURL(url); };
+  img.onload = ()=>{
+    const pg=currentPage();
+    pg.bg={ img, x:0, y:0, w:img.naturalWidth, h:img.naturalHeight, angle:0 };
+    selectedIdx=-1; bgSelected=true; redraw(); URL.revokeObjectURL(url);
+  };
   img.src = url;
 });
 
@@ -317,8 +326,8 @@ function placeQR(data){
     const initW=180, initH=180;
     const center = screenToLogical(centerOfCanvas());
     const pg = currentPage();
-    pg.items.push({ type:'qr', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 });
-    selectedIdx = pg.items.length - 1; redraw();
+  pg.items.push({ type:'qr', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 });
+  selectedIdx = pg.items.length - 1; bgSelected=false; redraw();
   };
   img.onerror = ()=> alert('QR画像の取得に失敗しました。ネットワークをご確認ください。');
   img.src = src;
@@ -329,14 +338,14 @@ document.getElementById('implantBtn').addEventListener('click', ()=>{
   const center = screenToLogical(centerOfCanvas());
   const pg = currentPage();
   pg.items.push({ type:'implant', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 });
-  selectedIdx = pg.items.length - 1; redraw();
+  selectedIdx = pg.items.length - 1; bgSelected=false; redraw();
 });
 document.getElementById('crownBtn').addEventListener('click', ()=>{
   const img = makeCrownStamp(); const initW=260, initH=220;
   const center = screenToLogical(centerOfCanvas());
   const pg = currentPage();
   pg.items.push({ type:'crown', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 });
-  selectedIdx = pg.items.length - 1; redraw();
+  selectedIdx = pg.items.length - 1; bgSelected=false; redraw();
 });
 
 /* 既定スタンプ生成 */
@@ -403,13 +412,24 @@ function hitTestItem(L){
   return {kind:'none', idx:-1};
 }
 
+function hitTestBackground(L){
+  const bg=currentPage().bg;
+  if (!bg) return {kind:'none', idx:-1};
+  const local=worldToLocal(L,bg); const h=localHitTest(local,bg);
+  if (h.inRotate) return {kind:'rotate', idx:-1};
+  if (h.inResize) return {kind:'resize', idx:-1};
+  if (h.inBody)   return {kind:'body',   idx:-1};
+  return {kind:'none', idx:-1};
+}
+
 /* =========================
    入力処理：描画／選択／パンピンチ
 ========================= */
 const pointers=new Map();
 let pinchStart=null; // {mid,dist,view}
-let dragState=null;  // {kind:'move'|'resize'|'rotate', idx, start, itemStart, startAngleScreen?}
+let dragState=null;  // {target:'item'|'bg', kind:'move'|'resize'|'rotate', idx, start, itemStart, startAngleScreen?}
 let selectedIdx=-1;
+let bgSelected=false;
 let drawing=false;
 let current=null;
 
@@ -424,13 +444,15 @@ canvas.addEventListener('pointerdown',(e)=>{
   const pg=currentPage();
 
   if (tool==='select'){
-    const L=screenToLogical(pt); const hit=hitTestItem(L);
+    const L=screenToLogical(pt);
     if (pointers.size===1){
-      selectedIdx = (hit.idx>=0)? hit.idx : -1;
-      if (selectedIdx>=0){
+      const hit=hitTestItem(L);
+      if (hit.idx>=0){
+        selectedIdx=hit.idx; bgSelected=false;
         const it=pg.items[selectedIdx];
         if (hit.kind==='rotate' && (it.type==='implant'||it.type==='crown')){
           dragState={
+            target:'item',
             kind:'rotate',
             idx:selectedIdx,
             start:L,
@@ -439,6 +461,7 @@ canvas.addEventListener('pointerdown',(e)=>{
           };
         } else if (hit.kind==='resize'){
           dragState={
+            target:'item',
             kind:'resize',
             idx:selectedIdx,
             start:L,
@@ -446,6 +469,7 @@ canvas.addEventListener('pointerdown',(e)=>{
           };
         } else if (hit.kind==='body'){
           dragState={
+            target:'item',
             kind:'move',
             idx:selectedIdx,
             start:L,
@@ -455,7 +479,42 @@ canvas.addEventListener('pointerdown',(e)=>{
           dragState=null;
         }
       } else {
-        dragState=null;
+        const bgHit=hitTestBackground(L);
+        if (bgHit.kind!=='none'){
+          selectedIdx=-1; bgSelected=true;
+          const bg=pg.bg;
+          if (!bg){ dragState=null; }
+          else if (bgHit.kind==='rotate'){
+            dragState={
+              target:'bg',
+              kind:'rotate',
+              idx:-1,
+              start:L,
+              itemStart:Object.assign({}, bg),
+              startAngleScreen:angleTo(bg,L)
+            };
+          } else if (bgHit.kind==='resize'){
+            dragState={
+              target:'bg',
+              kind:'resize',
+              idx:-1,
+              start:L,
+              itemStart:Object.assign({}, bg)
+            };
+          } else if (bgHit.kind==='body'){
+            dragState={
+              target:'bg',
+              kind:'move',
+              idx:-1,
+              start:L,
+              itemStart:Object.assign({}, bg)
+            };
+          } else {
+            dragState=null;
+          }
+        } else {
+          selectedIdx=-1; bgSelected=false; dragState=null;
+        }
       }
       redraw();
     }
@@ -484,24 +543,27 @@ canvas.addEventListener('pointermove',(e)=>{
   const pg=currentPage();
 
   if (tool==='select'){
-    if (pointers.size===1 && dragState && selectedIdx>=0){
+    if (pointers.size===1 && dragState){
       const L=screenToLogical(pointers.get(e.pointerId));
-      const it=pg.items[selectedIdx];
-      if (dragState.kind==='move'){
-        const dx=L.x-dragState.start.x, dy=L.y-dragState.start.y;
-        it.x=dragState.itemStart.x+dx; it.y=dragState.itemStart.y+dy;
-      } else if (dragState.kind==='resize'){
-        const localNow=worldToLocal(L, dragState.itemStart);
-        const halfW0=dragState.itemStart.w/2, halfH0=dragState.itemStart.h/2;
-        let newW=Math.max(20, (localNow.x + halfW0)*2);
-        let newH=Math.max(20, (localNow.y + halfH0)*2);
-        const {cx,cy}=getItemCenter(dragState.itemStart);
-        it.w=newW; it.h=newH; it.x=cx-it.w/2; it.y=cy-it.h/2;
-      } else if (dragState.kind==='rotate'){
-        const ang0=dragState.startAngleScreen; const ang1=angleTo(dragState.itemStart,L);
-        it.angle=(dragState.itemStart.angle||0)+(ang1-ang0);
+      const target = dragState.target==='bg' ? pg.bg : pg.items[dragState.idx];
+      if (target){
+        if (dragState.kind==='move'){
+          const dx=L.x-dragState.start.x, dy=L.y-dragState.start.y;
+          target.x=dragState.itemStart.x+dx; target.y=dragState.itemStart.y+dy;
+        } else if (dragState.kind==='resize'){
+          const localNow=worldToLocal(L, dragState.itemStart);
+          const halfW0=dragState.itemStart.w/2, halfH0=dragState.itemStart.h/2;
+          let newW=Math.max(20, (localNow.x + halfW0)*2);
+          let newH=Math.max(20, (localNow.y + halfH0)*2);
+          const {cx,cy}=getItemCenter(dragState.itemStart);
+          target.w=newW; target.h=newH; target.x=cx-target.w/2; target.y=cy-target.h/2;
+        } else if (dragState.kind==='rotate'){
+          const ang0=dragState.startAngleScreen; const ang1=angleTo(dragState.itemStart,L);
+          target.angle=(dragState.itemStart.angle||0)+(ang1-ang0);
+        }
+        redraw();
       }
-      redraw(); return;
+      return;
     }
     if (pointers.size===2){
       const {mid,dist}=twoFingerInfo(); if (!pinchStart) return;
@@ -552,7 +614,7 @@ function setTool(next){ tool=next;
   btns.pen.classList.toggle('active', tool==='pen');
   btns.hl .classList.toggle('active', tool==='hl');
   btns.sel.classList.toggle('active', tool==='select');
-  if (tool!=='select'){ selectedIdx=-1; dragState=null; redraw(); }
+  if (tool!=='select'){ selectedIdx=-1; bgSelected=false; dragState=null; redraw(); }
 }
 btns.pen.onclick=()=>setTool('pen');
 btns.hl.onclick =()=>setTool('hl');
@@ -564,12 +626,14 @@ document.getElementById('undoBtn').onclick=()=>{
   const pg=currentPage();
   if (current){ current=null; drawing=false; redraw(); return; }
   if (pg.strokes.length>0){ pg.strokes.pop(); redraw(); return; }
-  if (pg.items.length>0){ pg.items.pop(); selectedIdx=-1; redraw(); return; }
+  if (pg.items.length>0){ pg.items.pop(); selectedIdx=-1; bgSelected=false; redraw(); return; }
 };
 document.getElementById('clearPenBtn').onclick=()=>{ currentPage().strokes.length=0; redraw(); };
 document.getElementById('clearAllBtn').onclick=()=>{
   if (!confirm('現在ページの背景/スタンプ/描画をすべて消去します。')) return;
-  const pg=currentPage(); pg.strokes.length=0; pg.items.length=0; pg.bgImg=null; pg.bgSize={w:0,h:0}; selectedIdx=-1; redraw();
+  const pg=currentPage();
+  pg.strokes.length=0; pg.items.length=0; pg.bg=null;
+  selectedIdx=-1; bgSelected=false; redraw();
 };
 document.getElementById('saveBtn').onclick=()=>{
   const a=document.createElement('a');
@@ -589,16 +653,16 @@ document.getElementById('saveBtn').onclick=()=>{
 /* ページ操作 */
 document.getElementById('addPageBtn').onclick=()=>{
   pages.splice(pageIndex+1, 0, makeEmptyPage());
-  pageIndex++; selectedIdx=-1; redraw();
+  pageIndex++; selectedIdx=-1; bgSelected=false; redraw();
 };
-document.getElementById('prevPageBtn').onclick=()=>{ if (pageIndex>0){ pageIndex--; selectedIdx=-1; redraw(); } };
-document.getElementById('nextPageBtn').onclick=()=>{ if (pageIndex<pages.length-1){ pageIndex++; selectedIdx=-1; redraw(); } };
+document.getElementById('prevPageBtn').onclick=()=>{ if (pageIndex>0){ pageIndex--; selectedIdx=-1; bgSelected=false; redraw(); } };
+document.getElementById('nextPageBtn').onclick=()=>{ if (pageIndex<pages.length-1){ pageIndex++; selectedIdx=-1; bgSelected=false; redraw(); } };
 document.getElementById('deletePageBtn').onclick=()=>{
   if (pages.length===1){ alert('これ以上削除できません'); return; }
   if (!confirm(`ページ${pageIndex+1}を削除しますか？`)) return;
   pages.splice(pageIndex,1);
   pageIndex = Math.max(0, Math.min(pageIndex, pages.length-1));
-  selectedIdx=-1; redraw();
+  selectedIdx=-1; bgSelected=false; redraw();
 };
 function updatePageIndicator(){
   const el=document.getElementById('pageIndicator');
