@@ -76,6 +76,16 @@
       <div class="muted">左上に小さく表示（保存にも反映）</div>
     </div>
 
+    <!-- 保存・共有 -->
+    <div class="section">
+      <h2>患者データ保存 / 共有</h2>
+      <div class="row">
+        <button id="exportPatientBtn" class="full">患者データを書き出し</button>
+      </div>
+      <label class="as-btn" style="margin-top:6px"><input id="importPatientInput" type="file" accept="application/json">患者データを読み込む</label>
+      <div class="muted">※ 保存したJSONをAirDropなどで共有すると他のiPadでも続きを開けます</div>
+    </div>
+
     <!-- 描画 -->
     <div class="section">
       <h2>描画ツール</h2>
@@ -300,6 +310,186 @@ function drawPatientInfo(){
 }
 
 /* =========================
+   患者データ保存 / 読み込み
+========================= */
+const PATIENT_EXPORT_VERSION = 1;
+
+function imageToDataURL(img){
+  try {
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (!w || !h) return null;
+    const off = document.createElement('canvas');
+    off.width = w; off.height = h;
+    const g = off.getContext('2d');
+    g.drawImage(img, 0, 0, w, h);
+    return off.toDataURL('image/png');
+  } catch (err) {
+    console.warn('画像をデータURLに変換できませんでした', err);
+    return null;
+  }
+}
+
+function dataURLToImage(dataUrl){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.onload = ()=> resolve(img);
+    img.onerror = ()=> reject(new Error('画像の読み込みに失敗しました'));
+    img.src = dataUrl;
+  });
+}
+
+async function serializePatientData(){
+  const patient = {
+    name: document.getElementById('ptName').value.trim(),
+    id: document.getElementById('ptId').value.trim()
+  };
+
+  const serializedPages = [];
+  let missingImages = false;
+  for (const pg of pages){
+    const strokes = pg.strokes.map(s=>({
+      mode: s.mode,
+      width: s.width,
+      color: s.color,
+      points: s.points.map(p=>({x:p.x, y:p.y}))
+    }));
+
+    const items = [];
+    for (const it of pg.items){
+      const imageData = imageToDataURL(it.img);
+      if (!imageData) missingImages = true;
+      items.push({
+        type: it.type,
+        x: it.x,
+        y: it.y,
+        w: it.w,
+        h: it.h,
+        angle: it.angle || 0,
+        imageData,
+        qrData: it.type==='qr' && it.qrData ? it.qrData : undefined
+      });
+    }
+
+    let bg = null;
+    if (pg.bg){
+      const imageData = imageToDataURL(pg.bg.img);
+      if (!imageData) missingImages = true;
+      bg = {
+        x: pg.bg.x,
+        y: pg.bg.y,
+        w: pg.bg.w,
+        h: pg.bg.h,
+        angle: pg.bg.angle || 0,
+        imageData
+      };
+    }
+
+    serializedPages.push({ strokes, items, bg });
+  }
+
+  const payload = {
+    version: PATIENT_EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    patient,
+    showLines,
+    view: { scale:view.scale, tx:view.tx, ty:view.ty },
+    pages: serializedPages
+  };
+
+  return { payload, missingImages };
+}
+
+async function restorePatientData(data){
+  if (!data || typeof data !== 'object'){ throw new Error('形式が正しくありません'); }
+
+  const newPages = [];
+  const pageList = Array.isArray(data.pages) ? data.pages : [];
+  for (const pgData of pageList){
+    const pg = makeEmptyPage();
+    pg.strokes = Array.isArray(pgData.strokes) ? pgData.strokes.map(s=>({
+      mode: s.mode === 'hl' ? 'hl' : 'pen',
+      width: typeof s.width === 'number' ? s.width : (s.mode === 'hl' ? lineWidthHL : lineWidthPen),
+      color: s.color,
+      points: Array.isArray(s.points) ? s.points.map(p=>({x:p.x, y:p.y})) : []
+    })) : [];
+
+    pg.items = [];
+    if (Array.isArray(pgData.items)){
+      for (const item of pgData.items){
+        if (!item || !item.imageData) continue;
+        try {
+          const img = await dataURLToImage(item.imageData);
+          const restored = {
+            type: item.type || 'qr',
+            img,
+            x: typeof item.x === 'number' ? item.x : 0,
+            y: typeof item.y === 'number' ? item.y : 0,
+            w: typeof item.w === 'number' ? item.w : (img.naturalWidth || img.width),
+            h: typeof item.h === 'number' ? item.h : (img.naturalHeight || img.height),
+            angle: typeof item.angle === 'number' ? item.angle : 0
+          };
+          if (restored.type === 'qr' && item.qrData) restored.qrData = item.qrData;
+          pg.items.push(restored);
+        } catch (err) {
+          console.warn('スタンプの復元に失敗しました', err);
+        }
+      }
+    }
+
+    if (pgData.bg && pgData.bg.imageData){
+      try {
+        const bgImg = await dataURLToImage(pgData.bg.imageData);
+        pg.bg = {
+          img: bgImg,
+          x: typeof pgData.bg.x === 'number' ? pgData.bg.x : 0,
+          y: typeof pgData.bg.y === 'number' ? pgData.bg.y : 0,
+          w: typeof pgData.bg.w === 'number' ? pgData.bg.w : (bgImg.naturalWidth || bgImg.width),
+          h: typeof pgData.bg.h === 'number' ? pgData.bg.h : (bgImg.naturalHeight || bgImg.height),
+          angle: typeof pgData.bg.angle === 'number' ? pgData.bg.angle : 0
+        };
+      } catch (err) {
+        console.warn('背景の復元に失敗しました', err);
+      }
+    }
+
+    newPages.push(pg);
+  }
+
+  pages = newPages.length ? newPages : [makeEmptyPage()];
+  pageIndex = 0;
+  selectedIdx = -1;
+  bgSelected = false;
+  current = null;
+  drawing = false;
+  dragState = null;
+  pinchStart = null;
+  pointers.clear();
+
+  const patient = data.patient || {};
+  document.getElementById('ptName').value = patient.name || '';
+  document.getElementById('ptId').value = patient.id || '';
+
+  if (typeof data.showLines === 'boolean') showLines = data.showLines;
+
+  if (data.view){
+    if (typeof data.view.scale === 'number'){
+      view.scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, data.view.scale));
+    }
+    view.tx = typeof data.view.tx === 'number' ? data.view.tx : 0;
+    view.ty = typeof data.view.ty === 'number' ? data.view.ty : 0;
+  } else {
+    view.scale = 1; view.tx = 0; view.ty = 0;
+  }
+
+  redraw();
+}
+
+function sanitizeFileName(str){
+  return str.replace(/[\\/:*?"<>|]/g, '_').slice(0, 40) || 'patient';
+}
+
+/* =========================
    背景・QR・既定スタンプ（ページ単位）
 ========================= */
 document.getElementById('bgInput').addEventListener('change', (ev)=>{
@@ -327,8 +517,8 @@ function placeQR(data){
     const initW=180, initH=180;
     const center = screenToLogical(centerOfCanvas());
     const pg = currentPage();
-  pg.items.push({ type:'qr', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 });
-  selectedIdx = pg.items.length - 1; bgSelected=false; redraw();
+    pg.items.push({ type:'qr', qrData:data, img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 });
+    selectedIdx = pg.items.length - 1; bgSelected=false; redraw();
   };
   img.onerror = ()=> alert('QR画像の取得に失敗しました。ネットワークをご確認ください。');
   img.src = src;
@@ -692,6 +882,49 @@ document.getElementById('saveBtn').onclick=async()=>{
     redraw();
   }
 };
+
+document.getElementById('exportPatientBtn').onclick=async()=>{
+  try {
+    const { payload, missingImages } = await serializePatientData();
+    const namePart = sanitizeFileName(payload.patient.id || payload.patient.name || 'patient');
+    const timestamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${namePart}_${timestamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    if (missingImages){
+      alert('一部の画像を取得できなかったため、書き出したデータに含まれていない可能性があります。');
+    }
+  } catch (err) {
+    console.error(err);
+    alert('患者データの書き出しに失敗しました。');
+  }
+};
+
+document.getElementById('importPatientInput').addEventListener('change', async(ev)=>{
+  const file = ev.target.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (data.version && data.version > PATIENT_EXPORT_VERSION){
+      const proceed = confirm('新しい形式のファイルです。読み込みを試みますか？');
+      if (!proceed) return;
+    }
+    await restorePatientData(data);
+    alert('患者データを読み込みました。');
+  } catch (err) {
+    console.error(err);
+    alert('患者データの読み込みに失敗しました。ファイルをご確認ください。');
+  } finally {
+    ev.target.value = '';
+  }
+});
 
 /* ペン色 */
 [['colorBlack','#111'],['colorRed','#e11d48'],['colorBlue','#2563eb'],['colorYel','#f59e0b']].forEach(([id,col])=>{
