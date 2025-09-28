@@ -242,7 +242,7 @@
   <main id="main">
     <div id="canvasPane">
       <canvas id="c"></canvas>
-      <div id="hint">1本指:描く/選択　2本指:パン&ズーム　上の丸=回転　右下=拡大縮小</div>
+      <div id="hint">1本指:描く/選択　2本指:パン&ズーム　上の丸=回転　右下=拡大縮小・伸縮</div>
     </div>
   </main>
 
@@ -1424,14 +1424,14 @@ canvas.addEventListener('pointermove',(e)=>{
         } else if (dragState.kind==='resize'){
           const localNow=worldToLocal(L, dragState.itemStart);
           const startLocal = dragState.handleStartLocal || {x:dragState.itemStart.w/2, y:dragState.itemStart.h/2};
-          const ratioX = startLocal.x !== 0 ? localNow.x / startLocal.x : 1;
-          const ratioY = startLocal.y !== 0 ? localNow.y / startLocal.y : 1;
-          let scale = Math.max(ratioX, ratioY);
-          if (!Number.isFinite(scale) || scale <= 0) scale = 0.1;
+          let scaleX = startLocal.x !== 0 ? localNow.x / startLocal.x : 1;
+          let scaleY = startLocal.y !== 0 ? localNow.y / startLocal.y : 1;
+          if (!Number.isFinite(scaleX) || scaleX === 0) scaleX = 1;
+          if (!Number.isFinite(scaleY) || scaleY === 0) scaleY = 1;
           const baseW = dragState.itemStart.w;
           const baseH = dragState.itemStart.h;
-          const newW = Math.max(40, baseW * scale);
-          const newH = Math.max(40, baseH * scale);
+          const newW = Math.max(40, Math.abs(baseW * scaleX));
+          const newH = Math.max(40, Math.abs(baseH * scaleY));
           const {cx,cy}=getItemCenter(dragState.itemStart);
           target.w=newW; target.h=newH; target.x=cx-target.w/2; target.y=cy-target.h/2;
         } else if (dragState.kind==='rotate'){
