@@ -137,7 +137,11 @@
       <div class="row">
         <button id="penBtn" class="full active">ペン</button>
         <button id="hlBtn" class="full">蛍光</button>
+        <button id="eraserBtn" class="full">消しゴム</button>
+      </div>
+      <div class="row" style="margin-top:8px">
         <button id="selectBtn" class="full" title="スタンプの移動・回転・サイズ変更">選択</button>
+        <button id="deleteSelectionBtn" class="full" title="選択中の背景・スタンプを削除" disabled>選択削除</button>
       </div>
       <div class="row" style="margin-top:8px; align-items:center">
         <div id="colorBlack" class="swatch active" title="黒" style="background:#111"></div>
@@ -145,6 +149,14 @@
         <div id="colorBlue" class="swatch" title="青" style="background:#2563eb"></div>
         <div id="colorYel" class="swatch" title="黄" style="background:#f59e0b"></div>
         <span class="muted" style="margin-left:6px">※色はペンのみ</span>
+      </div>
+      <div class="row" id="eraserSizeRow" style="margin-top:8px; align-items:center; display:none">
+        <span style="min-width:86px; font-size:13px; color:#4b5563;">消しゴムサイズ</span>
+        <select id="eraserSize" class="full">
+          <option value="12">細</option>
+          <option value="24" selected>中</option>
+          <option value="40">太</option>
+        </select>
       </div>
       <div class="row" style="margin-top:8px">
         <button id="undoBtn" class="full">元に戻す</button>
@@ -206,11 +218,17 @@
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d', { alpha:true, desynchronized:true });
 const pane = document.getElementById('canvasPane');
+const strokeLayer = document.createElement('canvas');
+const strokeCtx = strokeLayer.getContext('2d', { alpha:true }) || strokeLayer.getContext('2d');
+const deleteSelectionBtn = document.getElementById('deleteSelectionBtn');
+const eraserSizeRowEl = document.getElementById('eraserSizeRow');
+const eraserSizeSelectEl = document.getElementById('eraserSize');
 
-let tool = 'pen'; // 'pen' | 'hl' | 'select'
+let tool = 'pen'; // 'pen' | 'hl' | 'eraser' | 'select'
 let lineWidthPen = 3;
 let lineWidthHL  = 16;
 let penColor = '#111';
+let eraserSize = 24;
 
 let showLines = false;
 const LINE_STEP = 30;
@@ -245,6 +263,7 @@ function setCanvasSize(){
   const w = Math.max(1, Math.floor(r.width*dpr));
   const h = Math.max(1, Math.floor(r.height*dpr));
   if (canvas.width!==w || canvas.height!==h){ canvas.width=w; canvas.height=h; }
+  ensureStrokeLayerSize();
   ctx.setTransform(dpr,0,0,dpr,0,0);
   redraw();
 }
@@ -274,13 +293,14 @@ function redraw(){
   if (pg.bg) drawPlacedImage(pg.bg);
   if (pg.kind==='estimate') drawEstimatePage(pg);
   for (const it of pg.items) drawPlacedImage(it);
-  for (const s of pg.strokes) drawStroke(s);
+  drawStrokesLayer(pg);
   drawPatientInfo();
 
   // 選択ハンドル（選択中）
   if (bgSelected && pg.bg) drawSelectionHandles(pg.bg);
   if (selectedIdx>=0 && pg.items[selectedIdx]) drawSelectionHandles(pg.items[selectedIdx]);
 
+  updateSelectionControls();
   updatePageIndicator();
 }
 function drawHorizontalLines(step){
@@ -313,15 +333,71 @@ function drawPatientInfo(){
   ctx.fillText(`${name}${name && id ? ' ' : ''}${id}`, 10, 10);
   ctx.restore();
 }
-function drawStroke(s){
-  if (!s.points || s.points.length<2) return;
-  ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
-  if (s.mode==='pen'){ ctx.globalAlpha=1; ctx.strokeStyle=s.color||'#111'; ctx.lineWidth=s.width||lineWidthPen; }
-  else { ctx.globalAlpha=0.28; ctx.strokeStyle='#ffd600'; ctx.lineWidth=s.width||lineWidthHL; }
-  ctx.beginPath();
-  ctx.moveTo(s.points[0].x,s.points[0].y);
-  for (let i=1;i<s.points.length;i++) ctx.lineTo(s.points[i].x,s.points[i].y);
-  ctx.stroke(); ctx.restore();
+function ensureStrokeLayerSize(){
+  if (!strokeCtx) return;
+  if (strokeLayer.width!==canvas.width || strokeLayer.height!==canvas.height){
+    strokeLayer.width = canvas.width;
+    strokeLayer.height = canvas.height;
+  }
+}
+function renderStroke(targetCtx, stroke){
+  if (!targetCtx || !stroke || !stroke.points || stroke.points.length<2) return;
+  targetCtx.save();
+  targetCtx.lineCap='round';
+  targetCtx.lineJoin='round';
+  const mode = stroke.mode;
+  if (mode==='pen'){
+    targetCtx.globalCompositeOperation='source-over';
+    targetCtx.globalAlpha=1;
+    targetCtx.strokeStyle=stroke.color||penColor;
+    targetCtx.lineWidth=stroke.width||lineWidthPen;
+  } else if (mode==='hl'){
+    targetCtx.globalCompositeOperation='source-over';
+    targetCtx.globalAlpha=0.28;
+    targetCtx.strokeStyle='#ffd600';
+    targetCtx.lineWidth=stroke.width||lineWidthHL;
+  } else if (mode==='eraser'){
+    targetCtx.globalCompositeOperation='destination-out';
+    targetCtx.globalAlpha=1;
+    targetCtx.strokeStyle='rgba(0,0,0,1)';
+    targetCtx.lineWidth=stroke.width||eraserSize;
+  } else {
+    targetCtx.globalCompositeOperation='source-over';
+    targetCtx.globalAlpha=1;
+    targetCtx.strokeStyle=stroke.color||penColor;
+    targetCtx.lineWidth=stroke.width||lineWidthPen;
+  }
+  targetCtx.beginPath();
+  targetCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+  for (let i=1;i<stroke.points.length;i++) targetCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+  targetCtx.stroke();
+  targetCtx.restore();
+}
+function drawStrokesLayer(pg){
+  if (!strokeCtx) return;
+  ensureStrokeLayerSize();
+  const dpr = window.devicePixelRatio || 1;
+  strokeCtx.setTransform(1,0,0,1,0,0);
+  strokeCtx.clearRect(0,0,strokeLayer.width, strokeLayer.height);
+  strokeCtx.setTransform(dpr,0,0,dpr,0,0);
+  strokeCtx.transform(view.scale,0,0,view.scale,view.tx,view.ty);
+  if (pg && Array.isArray(pg.strokes)){
+    for (const s of pg.strokes) renderStroke(strokeCtx, s);
+  }
+  if (current && current.points && current.points.length>1){
+    renderStroke(strokeCtx, current);
+  }
+  ctx.save();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.drawImage(strokeLayer, 0, 0);
+  ctx.restore();
+}
+function updateSelectionControls(){
+  if (!deleteSelectionBtn) return;
+  const pg = currentPage();
+  const hasBg = !!(bgSelected && pg && pg.bg);
+  const hasItem = !!(selectedIdx>=0 && pg && pg.items && pg.items[selectedIdx]);
+  deleteSelectionBtn.disabled = !(hasBg || hasItem);
 }
 function getItemCenter(it){ return { cx: it.x + it.w/2, cy: it.y + it.h/2 }; }
 function drawPlacedImage(it){
@@ -391,25 +467,28 @@ function beginStroke(mode, color, width, startPt){
 function appendStrokePoints(pts){
   if (!current || !pts.length) return;
   const arr=current.points;
-  ctx.save(); applyView();
-  ctx.lineCap='round'; ctx.lineJoin='round';
-  if (current.mode==='pen'){ ctx.globalAlpha=1; ctx.strokeStyle=current.color||'#111'; ctx.lineWidth=current.width||lineWidthPen; }
-  else { ctx.globalAlpha=0.28; ctx.strokeStyle='#ffd600'; ctx.lineWidth=current.width||lineWidthHL; }
-  let prev = arr[arr.length-1];
-  ctx.beginPath(); ctx.moveTo(prev.x, prev.y);
-  for (const p of pts){ const L=screenToLogical(p); arr.push(L); ctx.lineTo(L.x,L.y); }
-  ctx.stroke(); ctx.restore();
+  for (const p of pts){
+    arr.push(screenToLogical(p));
+  }
+  redraw();
 }
 function endStroke(){
-  if (!current) return; currentPage().strokes.push(current); current=null; drawing=false; // 既に即時描画済みなので全体再描画は不要
+  if (!current) return;
+  currentPage().strokes.push(current);
+  current=null;
+  drawing=false;
+  redraw();
 }
 
 /* ---- Touch Events：スタライス（タッチ扱い）を完全対応 ---- */
 function onTouchStart(e){
   if (e.cancelable) e.preventDefault();
-  if (tool!=='pen' && tool!=='hl') return; // 選択ツール中は描画しない
+  if (tool!=='pen' && tool!=='hl' && tool!=='eraser') return; // 選択ツール中は描画しない
   if (!e.touches || e.touches.length===0) return;
-  const t = e.touches[0]; beginStroke(tool, tool==='pen'?penColor:undefined, tool==='pen'?lineWidthPen:lineWidthHL, getTouchPoint(t));
+  const t = e.touches[0];
+  const width = tool==='pen' ? lineWidthPen : tool==='hl' ? lineWidthHL : eraserSize;
+  const color = tool==='pen' ? penColor : undefined;
+  beginStroke(tool, color, width, getTouchPoint(t));
 }
 function onTouchMove(e){
   if (!drawing) return;
@@ -422,7 +501,7 @@ function onTouchEnd(e){
   if (e.touches && e.touches.length>0) return;
   if (drawing) endStroke();
 }
-function onTouchCancel(e){ if (e.cancelable) e.preventDefault(); current=null; drawing=false; }
+function onTouchCancel(e){ if (e.cancelable) e.preventDefault(); current=null; drawing=false; redraw(); }
 
 /* ---- Pointer：選択操作＆マウス描画（必要なら） ---- */
 function angleTo(it, ptWorld){ const {cx,cy}=getItemCenter(it); return Math.atan2(ptWorld.y-cy, ptWorld.x-cx); }
@@ -468,8 +547,10 @@ canvas.addEventListener('pointerdown',(e)=>{
   }
 
   // ペン/蛍光をPointerでも使いたい人向け（マウスや純正ペンでも可）
-  if (tool==='pen' || tool==='hl'){
-    beginStroke(tool, tool==='pen'?penColor:undefined, tool==='pen'?lineWidthPen:lineWidthHL, pt);
+  if (tool==='pen' || tool==='hl' || tool==='eraser'){
+    const width = tool==='pen' ? lineWidthPen : tool==='hl' ? lineWidthHL : eraserSize;
+    const color = tool==='pen' ? penColor : undefined;
+    beginStroke(tool, color, width, pt);
   }
 },{passive:false});
 
@@ -506,7 +587,7 @@ canvas.addEventListener('pointermove',(e)=>{
   }
 
   // 追従描画（Pointer経由）
-  if (drawing && (tool==='pen' || tool==='hl')) appendStrokePoints([getEventPoint(e)]);
+  if (drawing && (tool==='pen' || tool==='hl' || tool==='eraser')) appendStrokePoints([getEventPoint(e)]);
 },{passive:false});
 
 canvas.addEventListener('pointerup',(e)=>{
@@ -517,7 +598,7 @@ canvas.addEventListener('pointerup',(e)=>{
 
 canvas.addEventListener('pointercancel',(e)=>{
   if (e.cancelable) e.preventDefault();
-  dragState=null; current=null; drawing=false;
+  dragState=null; current=null; drawing=false; redraw();
 },{passive:false});
 
 /* Touch（スタライス/指での描画） */
@@ -527,17 +608,54 @@ canvas.addEventListener('touchend',   onTouchEnd,   { passive:false });
 canvas.addEventListener('touchcancel',onTouchCancel,{ passive:false });
 
 /* ========================= ツールUI ========================= */
-const btns={ pen:document.getElementById('penBtn'), hl:document.getElementById('hlBtn'), sel:document.getElementById('selectBtn') };
+const btns={
+  pen:document.getElementById('penBtn'),
+  hl:document.getElementById('hlBtn'),
+  eraser:document.getElementById('eraserBtn'),
+  sel:document.getElementById('selectBtn')
+};
+function updateToolUI(){
+  if (btns.pen) btns.pen.classList.toggle('active', tool==='pen');
+  if (btns.hl) btns.hl.classList.toggle('active', tool==='hl');
+  if (btns.eraser) btns.eraser.classList.toggle('active', tool==='eraser');
+  if (btns.sel) btns.sel.classList.toggle('active', tool==='select');
+  if (eraserSizeRowEl) eraserSizeRowEl.style.display = tool==='eraser' ? 'flex' : 'none';
+}
 function setTool(next){
   tool=next;
-  btns.pen.classList.toggle('active', tool==='pen');
-  btns.hl .classList.toggle('active', tool==='hl');
-  btns.sel.classList.toggle('active', tool==='select');
-  if (tool!=='select'){ selectedIdx=-1; bgSelected=false; dragState=null; redraw(); }
+  if (tool!=='select'){ selectedIdx=-1; bgSelected=false; dragState=null; }
+  updateToolUI();
+  redraw();
 }
-btns.pen.onclick=()=>setTool('pen');
-btns.hl .onclick=()=>setTool('hl');
-btns.sel.onclick=()=>setTool('select');
+btns.pen?.addEventListener('click', ()=>setTool('pen'));
+btns.hl?.addEventListener('click', ()=>setTool('hl'));
+btns.eraser?.addEventListener('click', ()=>setTool('eraser'));
+btns.sel?.addEventListener('click', ()=>setTool('select'));
+updateToolUI();
+if (eraserSizeSelectEl){
+  const initialSize = parseInt(eraserSizeSelectEl.value, 10);
+  if (Number.isFinite(initialSize) && initialSize>0) eraserSize = initialSize;
+  eraserSizeSelectEl.addEventListener('change', ()=>{
+    const val = parseInt(eraserSizeSelectEl.value, 10);
+    if (Number.isFinite(val) && val>0) eraserSize = val;
+  });
+}
+if (deleteSelectionBtn){
+  deleteSelectionBtn.addEventListener('click', ()=>{
+    const pg=currentPage();
+    if (!pg) return;
+    if (bgSelected && pg.bg){
+      pg.bg=null;
+      bgSelected=false;
+    } else if (selectedIdx>=0){
+      pg.items.splice(selectedIdx,1);
+      selectedIdx=-1;
+    }
+    dragState=null;
+    redraw();
+  });
+}
+updateSelectionControls();
 
 [['colorBlack','#111'],['colorRed','#e11d48'],['colorBlue','#2563eb'],['colorYel','#f59e0b']].forEach(([id,col])=>{
   const el=document.getElementById(id);
@@ -550,10 +668,10 @@ btns.sel.onclick=()=>setTool('select');
 /* ========================= Undo / クリア / 罫線 ========================= */
 document.getElementById('undoBtn').onclick=()=>{
   const pg=currentPage();
-  if (drawing && current){ current=null; drawing=false; return; }
+  if (drawing && current){ current=null; drawing=false; redraw(); return; }
   if (pg.strokes.length>0){ pg.strokes.pop(); redraw(); }
 };
-document.getElementById('clearPenBtn').onclick=()=>{ currentPage().strokes.length=0; redraw(); };
+document.getElementById('clearPenBtn').onclick=()=>{ const pg=currentPage(); pg.strokes.length=0; current=null; drawing=false; redraw(); };
 document.getElementById('toggleLinesBtn').onclick=()=>{ showLines=!showLines; redraw(); };
 
 /* ========================= ページ操作 ========================= */
