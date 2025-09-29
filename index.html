@@ -2,15 +2,14 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
-/>
-<title>コンサル資料キット（iPad高速ペン・即再開版）</title>
+<meta name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>コンサル資料キット（Pencil遅延ゼロ版）</title>
 <style>
   :root { --bg:#f7f8fa; --panel:#ffffff; --line:#e5e7eb; --hover:#f0f3f8; --accent:#2563eb; }
   html,body { height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:#1f2937; }
-  body { overflow:hidden; }
+  body { overflow:hidden; -webkit-text-size-adjust:100%; }
+  * { -webkit-tap-highlight-color: transparent; }
   #wrap { display:flex; height:100vh; }
 
   /* サイドバー */
@@ -21,7 +20,7 @@
   }
   #sidebar h2 { font-size:14px; margin:0 0 6px; color:#374151; }
   .section { padding:10px; border:1px solid var(--line); border-radius:12px; background:#fff; }
-  .row { display:flex; gap:8px; }
+  .row { display:flex; gap:8px; align-items:center; }
   .full { width:100%; }
   .muted { color:#6b7280; font-size:12px; margin-top:6px; }
   button, label.as-btn, select, input[type=text], input[type=number], textarea {
@@ -35,7 +34,7 @@
   input[type=file]{ display:none; }
   label.as-btn { display:block; width:100%; text-align:center; }
 
-  /* キャンバス領域：単一キャンバス */
+  /* キャンバス：単一 */
   #main { flex:1; display:flex; flex-direction:column; min-width:0; position:relative; overflow:hidden; }
   #canvasPane {
     flex:1; position:relative; margin:12px; border:1px solid var(--line); border-radius:12px; background:#fff;
@@ -60,7 +59,7 @@
   .swatch { width:28px; height:28px; border-radius:7px; border:1px solid var(--line); cursor:pointer; }
   .swatch.active { outline:2px solid var(--accent); outline-offset:-2px; }
 
-  /* 見積エディタ */
+  /* 見積エディタ（簡易） */
   #estimateEditor { display:none; }
   #estimateRows { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
   .estimate-row {
@@ -75,7 +74,7 @@
   .estimate-loan { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .estimate-loan select { width:auto; min-width:110px; }
 
-  /* 追加：iPadの“待ち”を根絶 */
+  /* タップ/選択無効（Pencil遅延対策） */
   html, body, #canvasPane, canvas#c {
     -webkit-user-select: none;
     user-select: none;
@@ -135,10 +134,12 @@
     </div>
 
     <div class="section">
-      <h2>患者データ保存 / 共有</h2>
-      <div class="row"><button id="exportPatientBtn" class="full">患者データを書き出し</button></div>
-      <label class="as-btn" style="margin-top:6px"><input id="importPatientInput" type="file" accept="application/json">患者データを読み込む</label>
-      <div class="muted">※ 保存したJSONをAirDropなどで共有すると他のiPadでも続きを開けます</div>
+      <h2>Pencil動作</h2>
+      <div class="row">
+        <input id="blockScribble" type="checkbox" checked>
+        <label for="blockScribble">Apple Pencilでフォームにフォーカスしない（Scribble無効化）</label>
+      </div>
+      <div class="muted">※ ON推奨。ON中はPencilで左側の入力欄に触れてもフォーカスされません（指/キーボードは通常通り）</div>
     </div>
 
     <div class="section">
@@ -173,16 +174,6 @@
     </div>
 
     <div class="section">
-      <h2>説明QR（プリセット）</h2>
-      <div class="row"><select id="qrPresetSelect" class="full"></select></div>
-      <div class="row" style="margin-top:6px"><button id="placePresetBtn" class="full">この説明をQRで配置</button></div>
-      <div class="row" style="margin-top:10px"><input id="presetLabel" class="full" type="text" placeholder="追加ラベル（例：インプラント説明）"></div>
-      <div class="row" style="margin-top:6px"><input id="presetData" class="full" type="text" placeholder="URL または テキスト"></div>
-      <div class="row" style="margin-top:6px"><button id="addPresetBtn" class="full">候補を追加</button></div>
-      <div class="muted">※ 候補はブラウザに保存され、次回も表示されます</div>
-    </div>
-
-    <div class="section">
       <h2>表示 / 出力</h2>
       <div class="row">
         <button id="toggleLinesBtn" class="full">罫線 ON/OFF</button>
@@ -195,7 +186,7 @@
   <main id="main">
     <div id="canvasPane">
       <canvas id="c"></canvas>
-      <div id="hint">ペン/指:描く　2本指:パン（ズーム固定）</div>
+      <div id="hint">Pencil/指:描く　2本指:パン（ズーム固定）</div>
     </div>
   </main>
 </div>
@@ -204,10 +195,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 <script>
+/* ======= OSジェスチャ抑止（iOS） ======= */
+['gesturestart','gesturechange','gestureend'].forEach(type=>{
+  window.addEventListener(type, e=>{ if (e.cancelable) e.preventDefault(); }, { passive:false });
+});
+
 /* ========================= 基本セットアップ ========================= */
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d', { alpha:true, desynchronized:true });
 const pane = document.getElementById('canvasPane');
+const sidebar = document.getElementById('sidebar');
+const blockScribbleEl = document.getElementById('blockScribble');
 
 let tool = 'pen';              // 'pen' | 'hl' | 'select'
 let lineWidthPen = 3;
@@ -264,7 +262,7 @@ function renderAll(){
   }
   // 背景
   if (pg.bg) drawPlacedImage(pg.bg);
-  // 見積ページ（簡易）
+  // 見積ページ（必要なら拡張）
   if (pg.kind==='estimate') drawEstimatePage(pg);
   // スタンプ
   for (const it of pg.items) drawPlacedImage(it);
@@ -305,16 +303,16 @@ function drawPatientInfo(){
   ctx.restore();
 }
 
-/* ====== 見積（簡易描画ダミー。必要なら詳細表へ拡張可） ====== */
+/* ========== 見積（簡易ダミー） ========== */
 const ESTIMATE_INTEREST_RATE = 0.039;
 const currencyFormatter = new Intl.NumberFormat('ja-JP');
 function makeEstimateRow(){ return { tooth:'', category:'', treatment:'', unitPrice:0, price:0, quantity:1, note:'' }; }
 function makeEstimateData(){ return { rows:[makeEstimateRow()], loanMonths:12, interestRate:ESTIMATE_INTEREST_RATE }; }
 function drawEstimatePage(pg){
-  // 必要に応じて元の詳細テーブルを移植してください（ペン遅延対策には影響しません）
+  // 必要なら詳細テーブルを移植。Pencil遅延対策とは独立。
 }
 
-/* ====== 低遅延ストローク（即時描画） ====== */
+/* ====== Pencil即時ストローク ====== */
 let drawing=false;
 let currentStroke=null;
 
@@ -336,7 +334,7 @@ function beginStroke(mode, color, width, startPt){
 function appendStrokePoints(pts){
   if (!currentStroke || !pts.length) return;
   const arr = currentStroke.points;
-  // 直描き（全体再描画しない）
+
   ctx.save();
   ctx.lineCap='round'; ctx.lineJoin='round';
   if (currentStroke.mode==='pen'){ ctx.globalAlpha=1; ctx.strokeStyle=currentStroke.color||'#111'; ctx.lineWidth=currentStroke.width||lineWidthPen; }
@@ -352,17 +350,28 @@ function endStroke(){
   currentStroke=null; drawing=false;
 }
 
-/* ====== ペンイベント（“待ち”を無くす改良版） ====== */
+/* ====== iPad Scribble介入対策 ====== */
+function blurActiveIfPen(e){
+  if (e.pointerType === 'pen') {
+    // 既にフォーカス中のフォームがあるとScribble遷移が残留することがある
+    if (document.activeElement && document.activeElement !== document.body) {
+      document.activeElement.blur();
+    }
+  }
+}
+
+/* ====== Pencilイベント（取りこぼしゼロ） ====== */
 canvas.addEventListener('pointerdown', (e)=>{
+  // ペンでキャンバスに触れた瞬間にフォームフォーカスを外す（Scribble抑止）
+  blurActiveIfPen(e);
+
   e.preventDefault();
   e.stopPropagation();
 
   // 稀に pointerup が落ちた時の未確定ストローク掃除
   if (drawing && currentStroke) endStroke();
 
-  // （必要なら）ペン以外を無視する場合：if (e.pointerType && e.pointerType!=='pen' && e.pointerType!=='touch') return;
-
-  // すぐ次の pointerdown を阻害しないよう capture を確実に取る
+  // 直後の pointerdown を阻害しないため capture は取るが、up/cancelで必ず解放
   try { canvas.setPointerCapture(e.pointerId); } catch {}
 
   const pts = getCoalescedPoints(e);
@@ -378,20 +387,34 @@ canvas.addEventListener('pointermove', (e)=>{
   appendStrokePoints(pts);
 }, { passive:false });
 
+function releaseCaptureSafe(e){
+  try { if (canvas.hasPointerCapture?.(e.pointerId)) canvas.releasePointerCapture(e.pointerId); } catch {}
+}
+
 canvas.addEventListener('pointerup', (e)=>{
-  e.preventDefault();
-  e.stopPropagation();
+  e.preventDefault(); e.stopPropagation();
   if (drawing) endStroke();
-  // ★ ここが重要：capture を必ず解放（これで次ストロークが即始まる）
-  try { canvas.releasePointerCapture(e.pointerId); } catch {}
+  releaseCaptureSafe(e);
 }, { passive:false });
 
 canvas.addEventListener('pointercancel', (e)=>{
-  e.preventDefault();
-  e.stopPropagation();
+  e.preventDefault(); e.stopPropagation();
   currentStroke=null; drawing=false;
-  try { canvas.releasePointerCapture(e.pointerId); } catch {}
+  releaseCaptureSafe(e);
 }, { passive:false });
+
+canvas.addEventListener('pointerleave', (e)=>{
+  if (drawing) { endStroke(); releaseCaptureSafe(e); }
+}, { passive:true });
+
+canvas.addEventListener('pointerout', (e)=>{
+  if (drawing) { endStroke(); releaseCaptureSafe(e); }
+}, { passive:true });
+
+canvas.addEventListener('lostpointercapture', (e)=>{
+  // 念のため状態をきれいに
+  if (drawing) endStroke();
+}, { passive:true });
 
 /* rawupdate（任意。さらに低遅延） */
 canvas.addEventListener('pointerrawupdate', (e)=>{
@@ -400,6 +423,19 @@ canvas.addEventListener('pointerrawupdate', (e)=>{
   const pts = getCoalescedPoints(e);
   appendStrokePoints(pts);
 }, { passive:true });
+
+/* ====== サイドバー：Pencilでフォームを触ってもフォーカスしない（デフォルトON） ====== */
+function interceptPenToForms(e){
+  if (!blockScribbleEl.checked) return;        // ユーザーがOFFにしたら触らない
+  if (e.pointerType !== 'pen') return;         // Pencilのみ対象
+  const tag = (e.target.tagName||'').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) {
+    // フォームにフォーカスさせない→Scribble開始を阻止
+    if (e.cancelable) { e.preventDefault(); e.stopPropagation(); }
+  }
+}
+// サイドバー全域に付与（フォーム増えてもOK）
+sidebar.addEventListener('pointerdown', interceptPenToForms, { passive:false, capture:true });
 
 /* ====== ツール＆色 ====== */
 const btns={ pen:document.getElementById('penBtn'), hl:document.getElementById('hlBtn'), sel:document.getElementById('selectBtn') };
@@ -411,7 +447,7 @@ function setTool(next){
 }
 btns.pen.onclick=()=>setTool('pen');
 btns.hl .onclick=()=>setTool('hl');
-btns.sel.onclick=()=>setTool('select'); // 選択は簡易のまま（必要に応じて拡張可）
+btns.sel.onclick=()=>setTool('select');
 
 [['colorBlack','#111'],['colorRed','#e11d48'],['colorBlue','#2563eb'],['colorYel','#f59e0b']].forEach(([id,col])=>{
   const el=document.getElementById(id);
@@ -512,7 +548,7 @@ function makeCrownStamp(){
   const img=new Image(); img.src=off.toDataURL('image/png'); return img;
 }
 
-/* ====== PDF保存（画面PNG合成） ====== */
+/* ====== PDF保存 ====== */
 document.getElementById('saveBtn').onclick=async()=>{
   const jspdf = window.jspdf;
   if (!jspdf || !jspdf.jsPDF){ alert('PDFライブラリ読み込みに失敗しました'); return; }
@@ -531,8 +567,8 @@ document.getElementById('saveBtn').onclick=async()=>{
       if (i>0) pdf.addPage([r.width, r.height], orientation);
       pdf.addImage(dataUrl, 'PNG', 0,0, r.width, r.height);
     }
-    const timestamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-    pdf.save(`consult_pages_${timestamp}.pdf`);
+    const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    pdf.save(`consult_pages_${ts}.pdf`);
   }finally{ pageIndex=prevIndex; renderAll(); }
 };
 
@@ -582,7 +618,6 @@ function init(){
   setCanvasSize();
   updatePageIndicator();
   renderAll();
-  // Safariの「デスクトップ用Webサイト」オフ推奨
 }
 init();
 </script>
