@@ -338,7 +338,7 @@ function makeEstimateData(){
 }
 
 /* 罫線 */
-let showLines = true;
+let showLines = false;
 const LINE_STEP = 30;
 
 /* ページ：各ページごとにデータを持つ */
@@ -357,7 +357,7 @@ function makeEmptyPage(kind='blank'){
 
 /* ビュー（パン／ズーム固定）は全ページ共通 */
 const view = { scale:1, tx:0, ty:0 };
-const CANVAS_SCALE_LOCKED = false;
+const CANVAS_SCALE_LOCKED = true;
 const MIN_SCALE = CANVAS_SCALE_LOCKED ? 1 : 0.3;
 const MAX_SCALE = CANVAS_SCALE_LOCKED ? 1 : 6;
 
@@ -1337,15 +1337,6 @@ function angleTo(it, ptWorld){ const {cx,cy}=getItemCenter(it); return Math.atan
 function applyPinchTransform(mid, dist){
   if (!pinchStart) return false;
   const base = pinchStart.view;
-  const pg = currentPage();
-  if (pg && pg.kind === 'blank'){
-    let s = base.scale * (dist / pinchStart.dist);
-    s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
-    const scaleChanged = view.scale !== s;
-    view.scale = s;
-    const clampChanged = clampViewForPage();
-    return scaleChanged || clampChanged;
-  }
   if (CANVAS_SCALE_LOCKED){
     const nextScale = 1;
     const nextTx = base.tx + (mid.x - pinchStart.mid.x);
@@ -1355,6 +1346,15 @@ function applyPinchTransform(mid, dist){
     view.tx = nextTx;
     view.ty = nextTy;
     return changed;
+  }
+  const pg = currentPage();
+  if (pg && pg.kind === 'blank'){
+    let s = base.scale * (dist / pinchStart.dist);
+    s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+    const scaleChanged = view.scale !== s;
+    view.scale = s;
+    const clampChanged = clampViewForPage();
+    return scaleChanged || clampChanged;
   }
   let s = base.scale * (dist / pinchStart.dist);
   s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
