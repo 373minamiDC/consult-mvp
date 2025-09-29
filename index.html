@@ -364,6 +364,8 @@ const MAX_SCALE = CANVAS_SCALE_LOCKED ? 1 : 6;
 const HANDLE_SIZE = 16;
 const ROT_HANDLE_OFFSET = 28;
 
+let redrawPending = false;
+
 /* =========================
    DPRとサイズ
 ========================= */
@@ -438,6 +440,15 @@ function redraw(){
 
   drawPatientInfo();
   updatePageIndicator();
+}
+
+function requestRedraw(){
+  if (redrawPending) return;
+  redrawPending = true;
+  requestAnimationFrame(()=>{
+    redrawPending = false;
+    redraw();
+  });
 }
 
 function drawHorizontalLines(step){
@@ -846,7 +857,7 @@ function createEstimateRowElement(row, index, est){
 
   const updateTooth = ()=>{
     row.tooth = combineToothValue(sideSelect.value, archSelect.value, numberSelect.value);
-    redraw();
+    requestRedraw();
   };
 
   sideSelect.addEventListener('change', updateTooth);
@@ -862,7 +873,7 @@ function createEstimateRowElement(row, index, est){
     treatmentSelect.value = '';
     priceInput.value = '0';
     updateEstimateSummaryOnly(est);
-    redraw();
+    requestRedraw();
   });
 
   treatmentSelect.addEventListener('change', ()=>{
@@ -877,7 +888,7 @@ function createEstimateRowElement(row, index, est){
     }
     priceInput.value = String(Math.round(getRowTotal(row)) || 0);
     updateEstimateSummaryOnly(est);
-    redraw();
+    requestRedraw();
   });
 
   quantitySelect.addEventListener('change', ()=>{
@@ -892,7 +903,7 @@ function createEstimateRowElement(row, index, est){
     row.price = (unit || 0) * newQty;
     priceInput.value = String(Math.round(getRowTotal(row)) || 0);
     updateEstimateSummaryOnly(est);
-    redraw();
+    requestRedraw();
   });
 
   priceInput.addEventListener('input', ()=>{
@@ -901,12 +912,12 @@ function createEstimateRowElement(row, index, est){
     const qty = row.quantity || 1;
     row.unitPrice = qty ? (row.price / qty) : row.price;
     updateEstimateSummaryOnly(est);
-    redraw();
+    requestRedraw();
   });
 
   noteInput.addEventListener('input', ()=>{
     row.note = noteInput.value;
-    redraw();
+    requestRedraw();
   });
 
   removeBtn.addEventListener('click', ()=>{
@@ -917,7 +928,7 @@ function createEstimateRowElement(row, index, est){
       est.rows.splice(index, 1);
     }
     refreshEstimateEditor();
-    redraw();
+    requestRedraw();
   });
 
   return wrapper;
@@ -964,7 +975,7 @@ if (addEstimateRowBtn){
     const est = ensureEstimateDataForPage(pg);
     est.rows.push(makeEstimateRow());
     refreshEstimateEditor();
-    redraw();
+    requestRedraw();
   });
 }
 
@@ -976,7 +987,7 @@ if (loanMonthsSelectEl){
     pg.estimate.loanMonths = months;
     loanMonthsSelectEl.value = String(months);
     refreshEstimateEditor();
-    redraw();
+    requestRedraw();
   });
 }
 
@@ -1514,7 +1525,7 @@ canvas.addEventListener('pointerdown',(e)=>{
           selectedIdx=-1; bgSelected=false; dragState=null;
         }
       }
-      redraw();
+      requestRedraw();
     }
     if (pointers.size===2){
       const {mid,dist}=twoFingerInfo();
@@ -1531,7 +1542,7 @@ canvas.addEventListener('pointerdown',(e)=>{
     const {mid,dist}=twoFingerInfo();
     pinchStart={mid,dist,view:{ scale:view.scale, tx:view.tx, ty:view.ty }};
   }
-  redraw();
+  requestRedraw();
 },{passive:false});
 
 canvas.addEventListener('pointermove',(e)=>{
@@ -1565,13 +1576,13 @@ canvas.addEventListener('pointermove',(e)=>{
           const ang0=dragState.startAngleScreen; const ang1=angleTo(dragState.itemStart,L);
           target.angle=(dragState.itemStart.angle||0)+(ang1-ang0);
         }
-        redraw();
+        requestRedraw();
       }
       return;
     }
     if (pointers.size===2){
       const {mid,dist}=twoFingerInfo();
-      if (applyPinchTransform(mid, dist)) redraw();
+      if (applyPinchTransform(mid, dist)) requestRedraw();
       return;
     }
     return;
@@ -1584,11 +1595,11 @@ canvas.addEventListener('pointermove',(e)=>{
       const logical = screenToLogical(pointers.get(e.pointerId));
       entry.stroke.points.push(logical);
       entry.lastPoint = logical;
-      redraw();
+      requestRedraw();
     }
   } else if (pointers.size===2){
     const {mid,dist}=twoFingerInfo();
-    if (applyPinchTransform(mid, dist)) redraw();
+    if (applyPinchTransform(mid, dist)) requestRedraw();
   }
 },{passive:false});
 
@@ -1612,7 +1623,7 @@ canvas.addEventListener('pointerup',(e)=>{
 
   if (!activeStrokes.has(e.pointerId)) pointers.delete(e.pointerId);
   if (pointers.size<2) pinchStart=null;
-  redraw();
+  requestRedraw();
 },{passive:false});
 
 canvas.addEventListener('pointercancel',(e)=>{
@@ -1621,7 +1632,7 @@ canvas.addEventListener('pointercancel',(e)=>{
   dequeueStroke(e.pointerId);
   if (!activeStrokes.has(e.pointerId)) pointers.delete(e.pointerId);
   if (pointers.size<2) pinchStart=null;
-  redraw();
+  requestRedraw();
 },{passive:false});
 
 /* =========================
