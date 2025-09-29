@@ -14,7 +14,8 @@
 
   /* 左サイドバー */
   #sidebar { width:340px; max-width:42vw; min-width:270px; background:var(--panel); border-right:1px solid var(--line);
-    display:flex; flex-direction:column; gap:14px; padding:14px; box-sizing:border-box; overflow-y:auto; }
+    display:flex; flex-direction:column; gap:14px; padding:14px; box-sizing:border-box; overflow-y:auto;
+    scroll-padding-bottom:20px; padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px)); }
   #sidebar h2 { font-size:14px; margin:0 0 6px; color:#374151; }
   .section { padding:10px; border:1px solid var(--line); border-radius:12px; background:#fff; }
   .row { display:flex; gap:8px; }
