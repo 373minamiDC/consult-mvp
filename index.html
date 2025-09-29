@@ -316,14 +316,258 @@ function drawHorizontalLines(step){
   ctx.stroke();
   ctx.restore();
 }
+function wrapEstimateText(text, width, font){
+  const str = text == null ? '' : String(text);
+  if (!width || width <= 0) return str ? [str] : [''];
+  const prevFont = ctx.font;
+  ctx.font = font;
+  const lines = [];
+  const paragraphs = str.split(/\r?\n/);
+  for (const paragraph of paragraphs){
+    if (paragraph === ''){ lines.push(''); continue; }
+    let current = '';
+    for (const ch of Array.from(paragraph)){
+      const next = current + ch;
+      if (ctx.measureText(next).width > width && current){
+        lines.push(current);
+        current = ch;
+      } else {
+        current = next;
+      }
+    }
+    lines.push(current);
+  }
+  ctx.font = prevFont;
+  return lines.length ? lines : [''];
+}
+
 function drawEstimatePage(pg){
-  // 簡易ヘッダのみ（元の詳細表は長いので割愛したい場合は既存のままでもOK）
-  const rect = canvas.getBoundingClientRect();
-  const left = 24, top = 24;
+  const est = ensureEstimateDataForPage(pg);
+  const total = calculateEstimateTotal(est);
+  const monthly = Math.round(calculateMonthlyPayment(total, est.loanMonths, est.interestRate || ESTIMATE_INTEREST_RATE));
+  const patientName = document.getElementById('ptName')?.value.trim() || '';
+  const patientId = document.getElementById('ptId')?.value.trim() || '';
+
+  const logicalWidth = canvas.width / view.scale;
+  const margin = Math.max(28, Math.min(48, logicalWidth * 0.06));
+  const tableWidth = logicalWidth - margin * 2;
+  if (tableWidth <= 0) return;
+
+  const invScale = 1 / view.scale;
+  const headingFont = `${30 * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
+  const subHeadingFont = `${12 * invScale}px system-ui, sans-serif`;
+  const bodyFontSize = 13;
+  const bodyFont = `${bodyFontSize * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
+  const headerFont = `${12 * invScale}px system-ui, sans-serif`;
+  const summaryLabelFont = `${13 * invScale}px system-ui, sans-serif`;
+  const summaryValueFont = `${24 * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
+  const summaryMonthlyFont = `${16 * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
+  const footnoteFont = `${11 * invScale}px system-ui, sans-serif`;
+
+  const cellPaddingX = 10 * invScale;
+  const cellPaddingY = 8 * invScale;
+  const lineHeight = bodyFontSize * 1.45 * invScale;
+  const headerHeight = 34 * invScale;
+  const minRowHeight = 46 * invScale;
+
+  const columnDefs = [
+    { key:'tooth',      label:'部位',          ratio:0.12, align:'left',   wrap:true },
+    { key:'treatment',  label:'治療内容',      ratio:0.28, align:'left',   wrap:true },
+    { key:'quantity',   label:'数量',          ratio:0.08, align:'center', wrap:false },
+    { key:'unitPrice',  label:'単価（税込）',  ratio:0.15, align:'right',  wrap:false },
+    { key:'total',      label:'金額（税込）',  ratio:0.16, align:'right',  wrap:false },
+    { key:'note',       label:'備考',          ratio:0.21, align:'left',   wrap:true },
+  ];
+
+  const columnWidths = [];
+  let accum = 0;
+  columnDefs.forEach((col, idx)=>{
+    if (idx === columnDefs.length - 1){
+      columnWidths.push(tableWidth - accum);
+    } else {
+      const w = tableWidth * col.ratio;
+      columnWidths.push(w);
+      accum += w;
+    }
+  });
+  const columnOffsets = [];
+  let running = 0;
+  for (let i=0;i<columnWidths.length;i++){ columnOffsets.push(running); running += columnWidths[i]; }
+
+  const rowsInfo = est.rows.map((row)=>{
+    const perColumn = columnDefs.map((col, idx)=>{
+      let text = '';
+      if (col.key === 'tooth') text = row.tooth || '';
+      else if (col.key === 'treatment') text = row.treatment || '';
+      else if (col.key === 'quantity') text = row.quantity ? String(row.quantity) : '';
+      else if (col.key === 'unitPrice'){
+        const unit = Number(row.unitPrice);
+        text = unit > 0 ? formatCurrency(unit) : '';
+      }
+      else if (col.key === 'total'){
+        const rowTotal = getRowTotal(row);
+        text = rowTotal > 0 ? formatCurrency(rowTotal) : '';
+      }
+      else if (col.key === 'note') text = row.note || '';
+      const availableWidth = columnWidths[idx] - cellPaddingX * 2;
+      const lines = col.wrap ? wrapEstimateText(text, availableWidth, bodyFont) : [text || ''];
+      const effectiveLines = lines.length ? lines : [''];
+      const height = Math.max(minRowHeight, effectiveLines.length * lineHeight + cellPaddingY * 2);
+      return { lines: effectiveLines, height };
+    });
+    const rowHeight = perColumn.reduce((max, cell)=>Math.max(max, cell.height), minRowHeight);
+    return { columns: perColumn.map(cell=>({ ...cell, height: rowHeight })), height: rowHeight };
+  });
+
+  const tableTop = margin + 68 * invScale;
+  const tableHeight = headerHeight + rowsInfo.reduce((sum, info)=>sum + info.height, 0);
+  const tableBottom = tableTop + tableHeight;
+
   ctx.save();
-  ctx.fillStyle = '#111';
-  ctx.font = `${28/view.scale}px system-ui, sans-serif`;
-  ctx.fillText('見積書', left, top);
+
+  // 見出し
+  ctx.fillStyle = '#111827';
+  ctx.font = headingFont;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+  ctx.fillText('治療見積書', margin, margin);
+
+  ctx.font = subHeadingFont;
+  ctx.fillStyle = '#6b7280';
+  ctx.fillText('下記の内容にて治療費の目安をご案内いたします。', margin, margin + 36 * invScale);
+
+  if (patientName || patientId){
+    const infoLines = [];
+    if (patientName) infoLines.push(`${patientName} 様`);
+    if (patientId) infoLines.push(`ID: ${patientId}`);
+    ctx.font = `${13 * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
+    ctx.fillStyle = '#111827';
+    ctx.textAlign = 'right';
+    infoLines.forEach((line, idx)=>{
+      ctx.fillText(line, margin + tableWidth, margin + idx * (18 * invScale));
+    });
+  }
+
+  ctx.textAlign = 'left';
+
+  // テーブル背景
+  ctx.fillStyle = '#f3f4f6';
+  ctx.fillRect(margin, tableTop, tableWidth, headerHeight);
+
+  let rowY = tableTop + headerHeight;
+  rowsInfo.forEach((info, idx)=>{
+    ctx.fillStyle = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
+    ctx.fillRect(margin, rowY, tableWidth, info.height);
+    rowY += info.height;
+  });
+
+  // ヘッダ文字
+  ctx.font = headerFont;
+  ctx.fillStyle = '#374151';
+  ctx.textBaseline = 'middle';
+  columnDefs.forEach((col, idx)=>{
+    const colX = margin + columnOffsets[idx];
+    const colWidth = columnWidths[idx];
+    let textX = colX + cellPaddingX;
+    let align = 'left';
+    if (col.align === 'right'){ textX = colX + colWidth - cellPaddingX; align = 'right'; }
+    else if (col.align === 'center'){ textX = colX + colWidth / 2; align = 'center'; }
+    ctx.textAlign = align;
+    ctx.fillText(col.label, textX, tableTop + headerHeight / 2);
+  });
+
+  // 行テキスト
+  ctx.font = bodyFont;
+  ctx.fillStyle = '#1f2937';
+  ctx.textBaseline = 'top';
+  rowY = tableTop + headerHeight;
+  rowsInfo.forEach((info)=>{
+    columnDefs.forEach((col, idx)=>{
+      const colX = margin + columnOffsets[idx];
+      const colWidth = columnWidths[idx];
+      let textX = colX + cellPaddingX;
+      let align = 'left';
+      if (col.align === 'right'){ textX = colX + colWidth - cellPaddingX; align = 'right'; }
+      else if (col.align === 'center'){ textX = colX + colWidth / 2; align = 'center'; }
+      ctx.textAlign = align;
+      let textY = rowY + cellPaddingY;
+      const lines = info.columns[idx].lines.length ? info.columns[idx].lines : [''];
+      lines.forEach((line)=>{
+        if (line){ ctx.fillText(line, textX, textY); }
+        textY += lineHeight;
+      });
+    });
+    rowY += info.height;
+  });
+
+  // 枠線
+  ctx.strokeStyle = '#d1d5db';
+  ctx.lineWidth = Math.max(1 * invScale, 0.5 * invScale);
+  ctx.strokeRect(margin, tableTop, tableWidth, tableHeight);
+  let vX = margin;
+  columnDefs.forEach((col, idx)=>{
+    if (idx === 0) return;
+    vX = margin + columnOffsets[idx];
+    ctx.beginPath();
+    ctx.moveTo(vX, tableTop);
+    ctx.lineTo(vX, tableBottom);
+    ctx.stroke();
+  });
+  let hY = tableTop + headerHeight;
+  rowsInfo.forEach((info)=>{
+    ctx.beginPath();
+    ctx.moveTo(margin, hY);
+    ctx.lineTo(margin + tableWidth, hY);
+    ctx.stroke();
+    hY += info.height;
+  });
+
+  // サマリー
+  const summaryWidth = Math.min(tableWidth, Math.max(320 * invScale, tableWidth * 0.38));
+  const summaryHeight = 108 * invScale;
+  const summaryX = margin + tableWidth - summaryWidth;
+  const summaryY = tableBottom + 28 * invScale;
+  ctx.fillStyle = '#f9fafb';
+  ctx.fillRect(summaryX, summaryY, summaryWidth, summaryHeight);
+  ctx.strokeStyle = '#d1d5db';
+  ctx.strokeRect(summaryX, summaryY, summaryWidth, summaryHeight);
+
+  ctx.font = summaryLabelFont;
+  ctx.fillStyle = '#374151';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText('合計（税込）', summaryX + 16 * invScale, summaryY + 14 * invScale);
+
+  ctx.font = summaryValueFont;
+  ctx.fillStyle = '#111827';
+  ctx.textAlign = 'right';
+  ctx.fillText(formatCurrency(total), summaryX + summaryWidth - 16 * invScale, summaryY + 10 * invScale);
+
+  ctx.font = summaryLabelFont;
+  ctx.fillStyle = '#374151';
+  ctx.textAlign = 'left';
+  ctx.fillText('デンタルローンご利用時の目安', summaryX + 16 * invScale, summaryY + 56 * invScale);
+
+  const monthlyText = monthly > 0 ? formatCurrency(monthly) : formatCurrency(0);
+  ctx.font = summaryMonthlyFont;
+  ctx.fillStyle = '#111827';
+  ctx.textAlign = 'right';
+  ctx.fillText(`月々 約 ${monthlyText}`, summaryX + summaryWidth - 16 * invScale, summaryY + 52 * invScale);
+
+  const ratePct = ((est.interestRate || ESTIMATE_INTEREST_RATE) * 100).toFixed(1);
+  ctx.font = subHeadingFont;
+  ctx.fillStyle = '#6b7280';
+  ctx.textAlign = 'left';
+  ctx.fillText(`(${est.loanMonths}回 / 年利${ratePct}%想定)`, summaryX + 16 * invScale, summaryY + 78 * invScale);
+
+  // 備考・注釈
+  const footnoteY = summaryY + summaryHeight + 20 * invScale;
+  ctx.font = footnoteFont;
+  ctx.fillStyle = '#6b7280';
+  ctx.textAlign = 'left';
+  ctx.fillText('※ 診査結果により治療内容・費用が変更となる場合があります。', margin, footnoteY);
+  ctx.fillText('※ 保険診療費は別途発生する場合があります。担当スタッフまでご確認ください。', margin, footnoteY + 16 * invScale);
+
   ctx.restore();
 }
 function drawPatientInfo(){
