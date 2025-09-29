@@ -576,9 +576,11 @@ function drawEstimatePage(pg){
   const marginRight = baseHMargin + safe.right;
   const marginTop = baseVMargin + safe.top;
   const marginBottom = baseVMargin + safe.bottom;
-  const tableWidth = logicalWidth - marginLeft - marginRight;
+  const availableWidth = logicalWidth - marginLeft - marginRight;
+  const innerPadding = 40 * invScale;
+  const tableWidth = Math.max(0, availableWidth - innerPadding);
   if (tableWidth <= 0) return;
-  const tableX = marginLeft;
+  const tableX = marginLeft + (availableWidth - tableWidth) / 2;
 
   const invScale = 1 / view.scale;
   const headingFont = `${30 * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
