@@ -82,6 +82,12 @@ gap:6px; }
   canvas { position:absolute; inset:0; width:100%; height:100%; display:block; background:#fff; touch-action:none; }
   #hint { position:absolute; right:10px; bottom:10px; background:#0007; color:#fff; font-size:12px; padding:6px 8px; border-radius:8px; pointer-events:none; }
 
+  @media (max-width: 1200px) {
+    body { overflow:auto; }
+    #wrap { height:auto; min-height:100vh; }
+    #sidebar { width:300px; }
+  }
+
   @media (max-width: 900px) {
     body { overflow:auto; }
     #wrap { flex-direction:column; height:auto; }
@@ -570,34 +576,57 @@ function drawEstimatePage(pg){
   const logicalWidth = canvas.width / view.scale;
   const logicalHeight = canvas.height / view.scale;
   const safe = getSafeAreaInsets();
-  const baseHMargin = Math.max(60, Math.min(90, logicalWidth * 0.075));
-  const baseVMargin = Math.max(60, Math.min(90, logicalHeight * 0.075));
-  const marginLeft = baseHMargin + safe.left;
-  const marginRight = baseHMargin + safe.right;
-  const marginTop = baseVMargin + safe.top;
-  const marginBottom = baseVMargin + safe.bottom;
-  const availableWidth = logicalWidth - marginLeft - marginRight;
   const invScale = 1 / view.scale;
-  const innerPadding = 40 * invScale;
+  const baseHMargin = Math.max(50, Math.min(90, logicalWidth * 0.07));
+  const baseVMargin = Math.max(50, Math.min(90, logicalHeight * 0.07));
+  let marginLeft = baseHMargin + safe.left;
+  let marginRight = baseHMargin + safe.right;
+  let marginTop = baseVMargin + safe.top;
+  let marginBottom = baseVMargin + safe.bottom;
+  let availableWidth = logicalWidth - marginLeft - marginRight;
+  const designWidth = 940;
+  let layoutScale = Math.min(1, availableWidth / designWidth);
+  if (layoutScale < 1){
+    const marginFactor = 0.7 + 0.3 * layoutScale;
+    marginLeft = baseHMargin * marginFactor + safe.left;
+    marginRight = baseHMargin * marginFactor + safe.right;
+    marginTop = baseVMargin * marginFactor + safe.top;
+    marginBottom = baseVMargin * marginFactor + safe.bottom;
+    availableWidth = logicalWidth - marginLeft - marginRight;
+    layoutScale = Math.min(1, availableWidth / designWidth);
+  }
+
+  const scaleValue = (value, min=0)=>Math.max(min, value * layoutScale);
+  const px = (value, min=0)=>scaleValue(value, min) * invScale;
+
+  const innerPadding = px(40, 24);
   const tableWidth = Math.max(0, availableWidth - innerPadding);
   if (tableWidth <= 0) return;
   const tableX = marginLeft + (availableWidth - tableWidth) / 2;
 
-  const headingFont = `${30 * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
-  const subHeadingFont = `${12 * invScale}px system-ui, sans-serif`;
-  const bodyFontSize = 13;
-  const bodyFont = `${bodyFontSize * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
-  const headerFont = `${12 * invScale}px system-ui, sans-serif`;
-  const summaryLabelFont = `${13 * invScale}px system-ui, sans-serif`;
-  const summaryValueFont = `${24 * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
-  const summaryMonthlyFont = `${16 * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
-  const footnoteFont = `${11 * invScale}px system-ui, sans-serif`;
+  const headingFontSize = scaleValue(30, 24);
+  const subHeadingFontSize = scaleValue(12, 10);
+  const bodyFontSize = Math.max(11, scaleValue(13, 0));
+  const headerFontSize = scaleValue(12, 10);
+  const summaryLabelFontSize = Math.max(11, scaleValue(13, 0));
+  const summaryValueFontSize = scaleValue(24, 20);
+  const summaryMonthlyFontSize = scaleValue(16, 14);
+  const footnoteFontSize = scaleValue(11, 10);
 
-  const cellPaddingX = 10 * invScale;
-  const cellPaddingY = 8 * invScale;
-  const lineHeight = bodyFontSize * 1.45 * invScale;
-  const headerHeight = 34 * invScale;
-  const minRowHeight = 46 * invScale;
+  const headingFont = `${headingFontSize * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
+  const subHeadingFont = `${subHeadingFontSize * invScale}px system-ui, sans-serif`;
+  const bodyFont = `${bodyFontSize * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
+  const headerFont = `${headerFontSize * invScale}px system-ui, sans-serif`;
+  const summaryLabelFont = `${summaryLabelFontSize * invScale}px system-ui, sans-serif`;
+  const summaryValueFont = `${summaryValueFontSize * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
+  const summaryMonthlyFont = `${summaryMonthlyFontSize * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
+  const footnoteFont = `${footnoteFontSize * invScale}px system-ui, sans-serif`;
+
+  const cellPaddingX = px(10, 6);
+  const cellPaddingY = px(8, 5);
+  const lineHeight = Math.max(bodyFontSize * 1.35, scaleValue(18, 0)) * invScale;
+  const headerHeight = px(34, 28);
+  const minRowHeight = px(46, 36);
 
   const columnDefs = [
     { key:'tooth',      label:'部位',          ratio:0.12, align:'left',   wrap:true },
@@ -648,7 +677,7 @@ function drawEstimatePage(pg){
     return { columns: perColumn.map(cell=>({ ...cell, height: rowHeight })), height: rowHeight };
   });
 
-  const tableTop = marginTop + 68 * invScale;
+  const tableTop = marginTop + px(68, 48);
   const tableHeight = headerHeight + rowsInfo.reduce((sum, info)=>sum + info.height, 0);
   const tableBottom = tableTop + tableHeight;
 
@@ -663,17 +692,17 @@ function drawEstimatePage(pg){
 
   ctx.font = subHeadingFont;
   ctx.fillStyle = '#6b7280';
-  ctx.fillText('下記の内容にて治療費の目安をご案内いたします。', marginLeft, marginTop + 36 * invScale);
+  ctx.fillText('下記の内容にて治療費の目安をご案内いたします。', marginLeft, marginTop + px(36, 26));
 
   if (patientName || patientId){
     const infoLines = [];
     if (patientName) infoLines.push(`${patientName} 様`);
     if (patientId) infoLines.push(`ID: ${patientId}`);
-    ctx.font = `${13 * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
+    ctx.font = `${Math.max(scaleValue(13, 0), 11) * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
     ctx.fillStyle = '#111827';
     ctx.textAlign = 'right';
     infoLines.forEach((line, idx)=>{
-      ctx.fillText(line, tableX + tableWidth, marginTop + idx * (18 * invScale));
+      ctx.fillText(line, tableX + tableWidth, marginTop + idx * px(18, 14));
     });
   }
 
@@ -731,7 +760,7 @@ function drawEstimatePage(pg){
 
   // 枠線
   ctx.strokeStyle = '#d1d5db';
-  ctx.lineWidth = Math.max(1 * invScale, 0.5 * invScale);
+  ctx.lineWidth = Math.max(px(1.2, 0.75), 0.5 * invScale);
   ctx.strokeRect(tableX, tableTop, tableWidth, tableHeight);
   let vX = tableX;
   columnDefs.forEach((col, idx)=>{
@@ -752,15 +781,15 @@ function drawEstimatePage(pg){
   });
 
   // サマリー
-  const summaryWidth = Math.min(tableWidth, Math.max(320 * invScale, tableWidth * 0.38));
-  const summaryHeight = 108 * invScale;
+  const summaryWidth = Math.min(tableWidth, Math.max(px(320, 240), tableWidth * 0.38));
+  const summaryHeight = px(108, 92);
   const summaryX = tableX + tableWidth - summaryWidth;
   const bottomLimit = logicalHeight - marginBottom;
-  let summaryGap = 28 * invScale;
-  let footnoteSpacing = 20 * invScale;
-  const minSummaryGap = 12 * invScale;
-  const minFootnoteSpacing = 10 * invScale;
-  const footnoteBlockHeight = 32 * invScale;
+  let summaryGap = px(28, 12);
+  let footnoteSpacing = px(20, 10);
+  const minSummaryGap = px(12, 8);
+  const minFootnoteSpacing = px(10, 6);
+  const footnoteBlockHeight = px(32, 24);
   const availableAfterTable = Math.max(0, bottomLimit - tableBottom);
   let requiredHeight = summaryGap + summaryHeight + footnoteSpacing + footnoteBlockHeight;
   if (requiredHeight > availableAfterTable){
@@ -804,36 +833,37 @@ function drawEstimatePage(pg){
   ctx.fillStyle = '#374151';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  ctx.fillText('合計（税込）', summaryX + 16 * invScale, summaryY + 14 * invScale);
+  const summaryPaddingX = px(16, 12);
+  ctx.fillText('合計（税込）', summaryX + summaryPaddingX, summaryY + px(14, 10));
 
   ctx.font = summaryValueFont;
   ctx.fillStyle = '#111827';
   ctx.textAlign = 'right';
-  ctx.fillText(formatCurrency(total), summaryX + summaryWidth - 16 * invScale, summaryY + 10 * invScale);
+  ctx.fillText(formatCurrency(total), summaryX + summaryWidth - summaryPaddingX, summaryY + px(10, 8));
 
   ctx.font = summaryLabelFont;
   ctx.fillStyle = '#374151';
   ctx.textAlign = 'left';
-  ctx.fillText('デンタルローンご利用時の目安', summaryX + 16 * invScale, summaryY + 56 * invScale);
+  ctx.fillText('デンタルローンご利用時の目安', summaryX + summaryPaddingX, summaryY + px(56, 42));
 
   const monthlyText = monthly > 0 ? formatCurrency(monthly) : formatCurrency(0);
   ctx.font = summaryMonthlyFont;
   ctx.fillStyle = '#111827';
   ctx.textAlign = 'right';
-  ctx.fillText(`月々 約 ${monthlyText}`, summaryX + summaryWidth - 16 * invScale, summaryY + 52 * invScale);
+  ctx.fillText(`月々 約 ${monthlyText}`, summaryX + summaryWidth - summaryPaddingX, summaryY + px(52, 40));
 
   const ratePct = ((est.interestRate || ESTIMATE_INTEREST_RATE) * 100).toFixed(1);
   ctx.font = subHeadingFont;
   ctx.fillStyle = '#6b7280';
   ctx.textAlign = 'left';
-  ctx.fillText(`(${est.loanMonths}回 / 年利${ratePct}%想定)`, summaryX + 16 * invScale, summaryY + 78 * invScale);
+  ctx.fillText(`(${est.loanMonths}回 / 年利${ratePct}%想定)`, summaryX + summaryPaddingX, summaryY + px(78, 60));
 
   // 備考・注釈
   ctx.font = footnoteFont;
   ctx.fillStyle = '#6b7280';
   ctx.textAlign = 'left';
   ctx.fillText('※ 診査結果により治療内容・費用が変更となる場合があります。', tableX, footnoteY);
-  ctx.fillText('※ 保険診療費は別途発生する場合があります。担当スタッフまでご確認ください。', tableX, footnoteY + 16 * invScale);
+  ctx.fillText('※ 保険診療費は別途発生する場合があります。担当スタッフまでご確認ください。', tableX, footnoteY + px(16, 12));
 
   ctx.restore();
 }
