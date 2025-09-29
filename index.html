@@ -245,7 +245,7 @@
   <main id="main">
     <div id="canvasPane">
       <canvas id="c"></canvas>
-      <div id="hint">1本指:描く/選択　2本指:パン&ズーム　上の丸=回転　右下=拡大縮小・伸縮</div>
+      <div id="hint">1本指:描く/選択　2本指:パン（ズーム固定）　上の丸=回転　右下=拡大縮小・伸縮</div>
     </div>
   </main>
 
@@ -355,9 +355,11 @@ function makeEmptyPage(kind='blank'){
   };
 }
 
-/* ビュー（パン＆ズーム）は全ページ共通 */
+/* ビュー（パン／ズーム固定）は全ページ共通 */
 const view = { scale:1, tx:0, ty:0 };
-const MIN_SCALE = 0.3, MAX_SCALE = 6;
+const CANVAS_SCALE_LOCKED = true;
+const MIN_SCALE = CANVAS_SCALE_LOCKED ? 1 : 0.3;
+const MAX_SCALE = CANVAS_SCALE_LOCKED ? 1 : 6;
 
 const HANDLE_SIZE = 16;
 const ROT_HANDLE_OFFSET = 28;
@@ -1132,7 +1134,7 @@ async function restorePatientData(data){
 
   if (typeof data.showLines === 'boolean') showLines = data.showLines;
 
-  if (data.view){
+  if (!CANVAS_SCALE_LOCKED && data.view){
     if (typeof data.view.scale === 'number'){
       view.scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, data.view.scale));
     }
@@ -1308,6 +1310,32 @@ function twoFingerInfo(){ const arr=[...pointers.values()]; const p0=arr[0],p1=a
   return { mid:{x:(p0.x+p1.x)/2, y:(p0.y+p1.y)/2}, dist:Math.hypot(p1.x-p0.x, p1.y-p0.y) }; }
 function angleTo(it, ptWorld){ const {cx,cy}=getItemCenter(it); return Math.atan2(ptWorld.y-cy, ptWorld.x-cx); }
 
+function applyPinchTransform(mid, dist){
+  if (!pinchStart) return false;
+  const base = pinchStart.view;
+  if (CANVAS_SCALE_LOCKED){
+    const nextScale = 1;
+    const nextTx = base.tx + (mid.x - pinchStart.mid.x);
+    const nextTy = base.ty + (mid.y - pinchStart.mid.y);
+    const changed = view.scale !== nextScale || view.tx !== nextTx || view.ty !== nextTy;
+    view.scale = nextScale;
+    view.tx = nextTx;
+    view.ty = nextTy;
+    return changed;
+  }
+  let s = base.scale * (dist / pinchStart.dist);
+  s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+  const Lx = (pinchStart.mid.x - base.tx) / base.scale;
+  const Ly = (pinchStart.mid.y - base.ty) / base.scale;
+  const nextTx = mid.x - Lx * s;
+  const nextTy = mid.y - Ly * s;
+  const changed = view.scale !== s || view.tx !== nextTx || view.ty !== nextTy;
+  view.scale = s;
+  view.tx = nextTx;
+  view.ty = nextTy;
+  return changed;
+}
+
 canvas.addEventListener('pointerdown',(e)=>{
   e.preventDefault(); canvas.setPointerCapture(e.pointerId);
   const pt=getEventPoint(e); pointers.set(e.pointerId, pt);
@@ -1446,11 +1474,9 @@ canvas.addEventListener('pointermove',(e)=>{
       return;
     }
     if (pointers.size===2){
-      const {mid,dist}=twoFingerInfo(); if (!pinchStart) return;
-      const base=pinchStart.view; let s=base.scale*(dist/pinchStart.dist);
-      s=Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
-      const Lx=(pinchStart.mid.x-base.tx)/base.scale; const Ly=(pinchStart.mid.y-base.ty)/base.scale;
-      view.scale=s; view.tx=mid.x-Lx*s; view.ty=mid.y-Ly*s; redraw(); return;
+      const {mid,dist}=twoFingerInfo();
+      if (applyPinchTransform(mid, dist)) redraw();
+      return;
     }
     return;
   }
@@ -1458,11 +1484,9 @@ canvas.addEventListener('pointermove',(e)=>{
   // 描画
   if (pointers.size===1 && drawing && current){
     current.points.push(screenToLogical(pointers.get(e.pointerId))); redraw();
-  } else if (pointers.size===2 && pinchStart){
-    const {mid,dist}=twoFingerInfo(); const base=pinchStart.view; let s=base.scale*(dist/pinchStart.dist);
-    s=Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
-    const Lx=(pinchStart.mid.x-base.tx)/base.scale; const Ly=(pinchStart.mid.y-base.ty)/base.scale;
-    view.scale=s; view.tx=mid.x-Lx*s; view.ty=mid.y-Ly*s; redraw();
+  } else if (pointers.size===2){
+    const {mid,dist}=twoFingerInfo();
+    if (applyPinchTransform(mid, dist)) redraw();
   }
 },{passive:false});
 
