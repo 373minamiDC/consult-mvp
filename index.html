@@ -5,7 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>コンサル資料キット（スタライス連続筆記＋全機能）</title>
 <style>
-  :root { --bg:#f7f8fa; --panel:#ffffff; --line:#e5e7eb; --hover:#f0f3f8; --accent:#2563eb; }
+  :root {
+    --bg:#f7f8fa; --panel:#ffffff; --line:#e5e7eb; --hover:#f0f3f8; --accent:#2563eb;
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-right: env(safe-area-inset-right, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-left: env(safe-area-inset-left, 0px);
+  }
   html,body { height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:#1f2937; }
   body { overflow:hidden; -webkit-text-size-adjust:100%; }
   * { -webkit-tap-highlight-color: transparent; }
@@ -31,6 +37,14 @@
   button.active { outline:2px solid var(--accent); outline-offset:-2px; }
   input[type=file]{ display:none; }
   label.as-btn { display:block; width:100%; text-align:center; }
+
+  .text-modal-overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; padding:20px; z-index:1100; background:rgba(15,23,42,0.45); }
+  .text-modal { width:min(520px, 100%); background:#fff; border-radius:14px; padding:20px; box-shadow:0 16px 48px rgba(15,23,42,0.24); display:flex; flex-direction:column; gap:14px; }
+  .text-modal h3 { margin:0; font-size:16px; color:#111827; }
+  .text-modal textarea { width:100%; min-height:200px; resize:vertical; font-size:15px; line-height:1.6; border:1px solid var(--line); border-radius:10px; padding:10px 12px; box-sizing:border-box; }
+  .text-modal-actions { display:flex; justify-content:flex-end; gap:10px; }
+  .text-modal-actions button { min-width:94px; }
+  .text-modal-actions .primary { background:var(--accent); color:#fff; border-color:var(--accent); }
 
   /* 色スウォッチ */
   .swatch { width:28px; height:28px; border-radius:7px; border:1px solid var(--line); cursor:pointer; }
@@ -178,6 +192,15 @@ gap:6px; }
       </div>
     </div>
 
+    <!-- テキスト -->
+    <div class="section">
+      <h2>テキスト</h2>
+      <div class="row">
+        <button id="addTextBtn" class="full">テキストを追加</button>
+      </div>
+      <div class="muted">白紙ページで使用できます。追加後は選択ツールで配置・拡大縮小できます。</div>
+    </div>
+
     <!-- 画像・QR・スタンプ -->
     <div class="section">
       <h2>画像・QR・既定スタンプ</h2>
@@ -237,6 +260,10 @@ const strokeCtx = strokeLayer.getContext('2d', { alpha:true }) || strokeLayer.ge
 const deleteSelectionBtn = document.getElementById('deleteSelectionBtn');
 const eraserSizeRowEl = document.getElementById('eraserSizeRow');
 const eraserSizeSelectEl = document.getElementById('eraserSize');
+const addTextBtn = document.getElementById('addTextBtn');
+
+const measureCanvas = document.createElement('canvas');
+const measureCtx = measureCanvas.getContext('2d');
 
 let tool = 'pen'; // 'pen' | 'hl' | 'eraser' | 'select'
 let lineWidthPen = 3;
@@ -309,6 +336,131 @@ const TREATMENT_GROUPS = [
   }
 ];
 
+function getSafeAreaInsets(){
+  const style = getComputedStyle(document.documentElement);
+  const parse = (prop)=>{
+    const raw = style.getPropertyValue(prop);
+    if (!raw) return 0;
+    const num = Number.parseFloat(raw);
+    return Number.isFinite(num) ? num : 0;
+  };
+  return {
+    top: parse('--safe-area-top'),
+    right: parse('--safe-area-right'),
+    bottom: parse('--safe-area-bottom'),
+    left: parse('--safe-area-left')
+  };
+}
+
+function isTextItem(it){ return !!(it && it.type === 'text'); }
+function normalizeTextItem(it){
+  if (!it) return;
+  it.text = typeof it.text === 'string' ? it.text : '';
+  it.fontSize = Number.isFinite(it.fontSize) && it.fontSize > 0 ? it.fontSize : 24;
+  it.lineHeight = Number.isFinite(it.lineHeight) && it.lineHeight > 0 ? it.lineHeight : Math.round(it.fontSize * 1.35);
+  it.padding = Number.isFinite(it.padding) && it.padding >= 0 ? it.padding : 16;
+  it.color = typeof it.color === 'string' && it.color.trim() ? it.color : '#111827';
+  it.align = (it.align === 'center' || it.align === 'right') ? it.align : 'left';
+  it.w = Number.isFinite(it.w) && it.w > 0 ? it.w : 320;
+  const minHeight = it.lineHeight + it.padding * 2;
+  if (!Number.isFinite(it.h) || it.h <= 0) it.h = minHeight;
+  return it;
+}
+
+function computeTextLayout(it){
+  const ctxForMeasure = measureCtx || ctx;
+  const padding = it.padding || 0;
+  const available = Math.max(8, it.w - padding * 2);
+  const font = `${it.fontSize}px 'Noto Sans JP', system-ui, sans-serif`;
+  const lines = wrapEstimateText(it.text || '', available, font, ctxForMeasure);
+  const minHeight = it.lineHeight + padding * 2;
+  const neededHeight = Math.max(minHeight, lines.length * it.lineHeight + padding * 2);
+  return { lines, font, minHeight, neededHeight };
+}
+
+function ensureTextItemLayout(it){
+  if (!it) return { lines:[''], font:"", minHeight:0, neededHeight:0 };
+  normalizeTextItem(it);
+  if (it.w < it.padding * 2 + 60) it.w = it.padding * 2 + 60;
+  const layout = computeTextLayout(it);
+  if (it.h < layout.minHeight) it.h = layout.minHeight;
+  if (it.h < layout.neededHeight) it.h = layout.neededHeight;
+  return layout;
+}
+
+function createTextItem(text){
+  const item = {
+    type:'text',
+    text: text || '',
+    fontSize:24,
+    lineHeight:34,
+    padding:16,
+    color:'#111827',
+    align:'left',
+    x:0,
+    y:0,
+    w:360,
+    h:120,
+    angle:0
+  };
+  const layout = ensureTextItemLayout(item);
+  item.h = layout.neededHeight;
+  return item;
+}
+
+function openTextInputDialog({ title='テキスト', initialValue='', placeholder='' }={}){
+  return new Promise((resolve)=>{
+    let closed = false;
+    const overlay = document.createElement('div');
+    overlay.className = 'text-modal-overlay';
+    const modal = document.createElement('div');
+    modal.className = 'text-modal';
+
+    const heading = document.createElement('h3');
+    heading.textContent = title;
+    modal.appendChild(heading);
+
+    const textarea = document.createElement('textarea');
+    textarea.value = initialValue || '';
+    if (placeholder) textarea.placeholder = placeholder;
+    modal.appendChild(textarea);
+
+    const actions = document.createElement('div');
+    actions.className = 'text-modal-actions';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'キャンセル';
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = '保存';
+    saveBtn.classList.add('primary');
+
+    actions.appendChild(cancelBtn);
+    actions.appendChild(saveBtn);
+    modal.appendChild(actions);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    function cleanup(result){
+      if (closed) return;
+      closed = true;
+      document.body.removeChild(overlay);
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+
+    function onKey(e){
+      if (e.key === 'Escape'){ cleanup(null); }
+      else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter'){ cleanup(textarea.value); }
+    }
+
+    cancelBtn.addEventListener('click', ()=>cleanup(null));
+    saveBtn.addEventListener('click', ()=>cleanup(textarea.value));
+    overlay.addEventListener('click', (e)=>{ if (e.target === overlay) cleanup(null); });
+    document.addEventListener('keydown', onKey);
+    setTimeout(()=>{ textarea.focus(); textarea.select(); }, 10);
+  });
+}
+
 /* ページデータ */
 function makeEstimateRow(){ return { tooth:'', category:'', treatment:'', treatmentLabel:'', unitPrice:0, price:0, quantity:1, note:'' }; }
 function makeEstimateData(){ return { rows:[makeEstimateRow()], loanMonths:12, interestRate:ESTIMATE_INTEREST_RATE }; }
@@ -355,9 +507,9 @@ function redraw(){
   const pg = currentPage();
 
   if (pg.kind==='blank' && showLines) drawHorizontalLines(LINE_STEP);
-  if (pg.bg) drawPlacedImage(pg.bg);
+  if (pg.bg) drawPlacedItem(pg.bg);
   if (pg.kind==='estimate') drawEstimatePage(pg);
-  for (const it of pg.items) drawPlacedImage(it);
+  for (const it of pg.items) drawPlacedItem(it);
   drawStrokesLayer(pg);
   drawPatientInfo();
 
@@ -367,6 +519,7 @@ function redraw(){
 
   updateSelectionControls();
   updatePageIndicator();
+  updateTextControls();
 }
 function drawHorizontalLines(step){
   ctx.save();
@@ -380,11 +533,13 @@ function drawHorizontalLines(step){
   ctx.stroke();
   ctx.restore();
 }
-function wrapEstimateText(text, width, font){
+function wrapEstimateText(text, width, font, measureContext){
   const str = text == null ? '' : String(text);
   if (!width || width <= 0) return str ? [str] : [''];
-  const prevFont = ctx.font;
-  ctx.font = font;
+  const targetCtx = measureContext || ctx;
+  if (!targetCtx) return str ? [str] : [''];
+  const prevFont = targetCtx.font;
+  targetCtx.font = font;
   const lines = [];
   const paragraphs = str.split(/\r?\n/);
   for (const paragraph of paragraphs){
@@ -392,7 +547,7 @@ function wrapEstimateText(text, width, font){
     let current = '';
     for (const ch of Array.from(paragraph)){
       const next = current + ch;
-      if (ctx.measureText(next).width > width && current){
+      if (targetCtx.measureText(next).width > width && current){
         lines.push(current);
         current = ch;
       } else {
@@ -401,7 +556,7 @@ function wrapEstimateText(text, width, font){
     }
     lines.push(current);
   }
-  ctx.font = prevFont;
+  if (prevFont !== undefined) targetCtx.font = prevFont;
   return lines.length ? lines : [''];
 }
 
@@ -414,9 +569,16 @@ function drawEstimatePage(pg){
 
   const logicalWidth = canvas.width / view.scale;
   const logicalHeight = canvas.height / view.scale;
-  const margin = Math.max(60, Math.min(90, logicalWidth * 0.075));
-  const tableWidth = logicalWidth - margin * 2;
+  const safe = getSafeAreaInsets();
+  const baseHMargin = Math.max(60, Math.min(90, logicalWidth * 0.075));
+  const baseVMargin = Math.max(60, Math.min(90, logicalHeight * 0.075));
+  const marginLeft = baseHMargin + safe.left;
+  const marginRight = baseHMargin + safe.right;
+  const marginTop = baseVMargin + safe.top;
+  const marginBottom = baseVMargin + safe.bottom;
+  const tableWidth = logicalWidth - marginLeft - marginRight;
   if (tableWidth <= 0) return;
+  const tableX = marginLeft;
 
   const invScale = 1 / view.scale;
   const headingFont = `${30 * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
@@ -484,7 +646,7 @@ function drawEstimatePage(pg){
     return { columns: perColumn.map(cell=>({ ...cell, height: rowHeight })), height: rowHeight };
   });
 
-  const tableTop = margin + 68 * invScale;
+  const tableTop = marginTop + 68 * invScale;
   const tableHeight = headerHeight + rowsInfo.reduce((sum, info)=>sum + info.height, 0);
   const tableBottom = tableTop + tableHeight;
 
@@ -495,11 +657,11 @@ function drawEstimatePage(pg){
   ctx.font = headingFont;
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
-  ctx.fillText('治療見積書', margin, margin);
+  ctx.fillText('治療見積書', marginLeft, marginTop);
 
   ctx.font = subHeadingFont;
   ctx.fillStyle = '#6b7280';
-  ctx.fillText('下記の内容にて治療費の目安をご案内いたします。', margin, margin + 36 * invScale);
+  ctx.fillText('下記の内容にて治療費の目安をご案内いたします。', marginLeft, marginTop + 36 * invScale);
 
   if (patientName || patientId){
     const infoLines = [];
@@ -509,7 +671,7 @@ function drawEstimatePage(pg){
     ctx.fillStyle = '#111827';
     ctx.textAlign = 'right';
     infoLines.forEach((line, idx)=>{
-      ctx.fillText(line, margin + tableWidth, margin + idx * (18 * invScale));
+      ctx.fillText(line, tableX + tableWidth, marginTop + idx * (18 * invScale));
     });
   }
 
@@ -517,12 +679,12 @@ function drawEstimatePage(pg){
 
   // テーブル背景
   ctx.fillStyle = '#f3f4f6';
-  ctx.fillRect(margin, tableTop, tableWidth, headerHeight);
+  ctx.fillRect(tableX, tableTop, tableWidth, headerHeight);
 
   let rowY = tableTop + headerHeight;
   rowsInfo.forEach((info, idx)=>{
     ctx.fillStyle = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
-    ctx.fillRect(margin, rowY, tableWidth, info.height);
+    ctx.fillRect(tableX, rowY, tableWidth, info.height);
     rowY += info.height;
   });
 
@@ -531,7 +693,7 @@ function drawEstimatePage(pg){
   ctx.fillStyle = '#374151';
   ctx.textBaseline = 'middle';
   columnDefs.forEach((col, idx)=>{
-    const colX = margin + columnOffsets[idx];
+    const colX = tableX + columnOffsets[idx];
     const colWidth = columnWidths[idx];
     let textX = colX + cellPaddingX;
     let align = 'left';
@@ -548,7 +710,7 @@ function drawEstimatePage(pg){
   rowY = tableTop + headerHeight;
   rowsInfo.forEach((info)=>{
     columnDefs.forEach((col, idx)=>{
-      const colX = margin + columnOffsets[idx];
+      const colX = tableX + columnOffsets[idx];
       const colWidth = columnWidths[idx];
       let textX = colX + cellPaddingX;
       let align = 'left';
@@ -568,11 +730,11 @@ function drawEstimatePage(pg){
   // 枠線
   ctx.strokeStyle = '#d1d5db';
   ctx.lineWidth = Math.max(1 * invScale, 0.5 * invScale);
-  ctx.strokeRect(margin, tableTop, tableWidth, tableHeight);
-  let vX = margin;
+  ctx.strokeRect(tableX, tableTop, tableWidth, tableHeight);
+  let vX = tableX;
   columnDefs.forEach((col, idx)=>{
     if (idx === 0) return;
-    vX = margin + columnOffsets[idx];
+    vX = tableX + columnOffsets[idx];
     ctx.beginPath();
     ctx.moveTo(vX, tableTop);
     ctx.lineTo(vX, tableBottom);
@@ -581,8 +743,8 @@ function drawEstimatePage(pg){
   let hY = tableTop + headerHeight;
   rowsInfo.forEach((info)=>{
     ctx.beginPath();
-    ctx.moveTo(margin, hY);
-    ctx.lineTo(margin + tableWidth, hY);
+    ctx.moveTo(tableX, hY);
+    ctx.lineTo(tableX + tableWidth, hY);
     ctx.stroke();
     hY += info.height;
   });
@@ -590,8 +752,8 @@ function drawEstimatePage(pg){
   // サマリー
   const summaryWidth = Math.min(tableWidth, Math.max(320 * invScale, tableWidth * 0.38));
   const summaryHeight = 108 * invScale;
-  const summaryX = margin + tableWidth - summaryWidth;
-  const bottomLimit = logicalHeight - margin;
+  const summaryX = tableX + tableWidth - summaryWidth;
+  const bottomLimit = logicalHeight - marginBottom;
   let summaryGap = 28 * invScale;
   let footnoteSpacing = 20 * invScale;
   const minSummaryGap = 12 * invScale;
@@ -619,15 +781,15 @@ function drawEstimatePage(pg){
   }
   let summaryY = tableBottom + summaryGap;
   if (summaryY + summaryHeight > bottomLimit){
-    summaryY = Math.max(margin, bottomLimit - (summaryHeight + footnoteSpacing + footnoteBlockHeight));
+    summaryY = Math.max(marginTop, bottomLimit - (summaryHeight + footnoteSpacing + footnoteBlockHeight));
   }
-  summaryY = Math.max(margin, summaryY);
+  summaryY = Math.max(marginTop, summaryY);
   let footnoteY = summaryY + summaryHeight + footnoteSpacing;
   if (footnoteY + footnoteBlockHeight > bottomLimit){
     footnoteSpacing = Math.max(0, bottomLimit - footnoteBlockHeight - (summaryY + summaryHeight));
     footnoteY = summaryY + summaryHeight + footnoteSpacing;
     if (footnoteY + footnoteBlockHeight > bottomLimit){
-      footnoteY = Math.max(margin, bottomLimit - footnoteBlockHeight);
+      footnoteY = Math.max(marginTop, bottomLimit - footnoteBlockHeight);
       footnoteSpacing = Math.max(0, footnoteY - (summaryY + summaryHeight));
     }
   }
@@ -668,8 +830,8 @@ function drawEstimatePage(pg){
   ctx.font = footnoteFont;
   ctx.fillStyle = '#6b7280';
   ctx.textAlign = 'left';
-  ctx.fillText('※ 診査結果により治療内容・費用が変更となる場合があります。', margin, footnoteY);
-  ctx.fillText('※ 保険診療費は別途発生する場合があります。担当スタッフまでご確認ください。', margin, footnoteY + 16 * invScale);
+  ctx.fillText('※ 診査結果により治療内容・費用が変更となる場合があります。', tableX, footnoteY);
+  ctx.fillText('※ 保険診療費は別途発生する場合があります。担当スタッフまでご確認ください。', tableX, footnoteY + 16 * invScale);
 
   ctx.restore();
 }
@@ -747,11 +909,39 @@ function updateSelectionControls(){
   const hasItem = !!(selectedIdx>=0 && pg && pg.items && pg.items[selectedIdx]);
   deleteSelectionBtn.disabled = !(hasBg || hasItem);
 }
+
+function updateTextControls(){
+  if (!addTextBtn) return;
+  const pg = currentPage();
+  addTextBtn.disabled = !(pg && pg.kind === 'blank');
+}
 function getItemCenter(it){ return { cx: it.x + it.w/2, cy: it.y + it.h/2 }; }
-function drawPlacedImage(it){
+function drawPlacedItem(it){
+  if (!it) return;
   const {cx, cy} = getItemCenter(it);
   ctx.save(); ctx.translate(cx, cy); ctx.rotate(it.angle||0);
-  ctx.drawImage(it.img, -it.w/2, -it.h/2, it.w, it.h);
+  if (isTextItem(it)){
+    const layout = ensureTextItemLayout(it);
+    ctx.fillStyle = it.color || '#111827';
+    ctx.textBaseline = 'top';
+    let align = 'left';
+    if (it.align === 'center') align = 'center';
+    else if (it.align === 'right') align = 'right';
+    ctx.textAlign = align;
+    ctx.font = layout.font;
+    const padding = it.padding || 0;
+    let textX = -it.w/2 + padding;
+    if (align === 'center') textX = 0;
+    else if (align === 'right') textX = it.w/2 - padding;
+    let textY = -it.h/2 + padding;
+    const lineHeight = it.lineHeight || 32;
+    layout.lines.forEach((line)=>{
+      ctx.fillText(line, textX, textY);
+      textY += lineHeight;
+    });
+  } else if (it.img){
+    ctx.drawImage(it.img, -it.w/2, -it.h/2, it.w, it.h);
+  }
   ctx.restore();
 }
 function drawSelectionHandles(it){
@@ -923,10 +1113,27 @@ canvas.addEventListener('pointermove',(e)=>{
       if (!Number.isFinite(scaleX) || scaleX===0) scaleX=1;
       if (!Number.isFinite(scaleY) || scaleY===0) scaleY=1;
       const baseW=dragState.itemStart.w, baseH=dragState.itemStart.h;
-      const newW=Math.max(40, Math.abs(baseW*scaleX));
-      const newH=Math.max(40, Math.abs(baseH*scaleY));
+      let newW=Math.abs(baseW*scaleX);
+      let newH=Math.abs(baseH*scaleY);
+      if (isTextItem(target)){
+        const padding = target.padding || 0;
+        const minW = padding * 2 + 60;
+        const minH = Math.max((target.lineHeight || 32) + padding * 2, 60);
+        newW = Math.max(minW, newW);
+        newH = Math.max(minH, newH);
+      } else {
+        newW = Math.max(40, newW);
+        newH = Math.max(40, newH);
+      }
+      target.w=newW;
+      target.h=newH;
+      if (isTextItem(target)){
+        ensureTextItemLayout(target);
+      }
       const {cx,cy}=getItemCenter(dragState.itemStart);
-      target.w=newW; target.h=newH; target.x=cx-target.w/2; target.y=cy-target.h/2; redraw();
+      target.x=cx-target.w/2;
+      target.y=cy-target.h/2;
+      redraw();
     } else if (dragState.kind==='rotate'){
       const ang0=dragState.startAngleScreen; const ang1=angleTo(dragState.itemStart,L);
       target.angle=(dragState.itemStart.angle||0)+(ang1-ang0); redraw();
@@ -948,6 +1155,28 @@ canvas.addEventListener('pointercancel',(e)=>{
   if (e.cancelable) e.preventDefault();
   dragState=null; current=null; drawing=false; redraw();
 },{passive:false});
+
+canvas.addEventListener('dblclick', async (e)=>{
+  if (e.cancelable) e.preventDefault();
+  const pg = currentPage();
+  if (!pg) return;
+  const pt = getEventPoint(e);
+  const L = screenToLogical(pt);
+  const hit = hitTestItem(L);
+  if (hit.idx>=0){
+    const it = pg.items[hit.idx];
+    if (isTextItem(it)){
+      const next = await openTextInputDialog({ title:'テキストを編集', initialValue: it.text || '' });
+      if (next == null) return;
+      it.text = next;
+      ensureTextItemLayout(it);
+      selectedIdx = hit.idx;
+      bgSelected = false;
+      setTool('select');
+      redraw();
+    }
+  }
+});
 
 /* Touch（スタライス/指での描画） */
 canvas.addEventListener('touchstart', onTouchStart, { passive:false });
@@ -979,6 +1208,29 @@ btns.pen?.addEventListener('click', ()=>setTool('pen'));
 btns.hl?.addEventListener('click', ()=>setTool('hl'));
 btns.eraser?.addEventListener('click', ()=>setTool('eraser'));
 btns.sel?.addEventListener('click', ()=>setTool('select'));
+
+if (addTextBtn){
+  addTextBtn.addEventListener('click', async ()=>{
+    const pg = currentPage();
+    if (!pg || pg.kind !== 'blank'){
+      alert('テキストは白紙ページでのみ追加できます。');
+      return;
+    }
+    const value = await openTextInputDialog({ title:'テキストを追加', placeholder:'表示したい文章を入力してください' });
+    if (value == null) return;
+    if (!value.trim()) return;
+    const item = createTextItem(value);
+    const center = centerOfCanvasLogical();
+    item.x = center.x - item.w/2;
+    item.y = center.y - item.h/2;
+    ensureTextItemLayout(item);
+    pg.items.push(item);
+    selectedIdx = pg.items.length - 1;
+    bgSelected = false;
+    setTool('select');
+    redraw();
+  });
+}
 updateToolUI();
 if (eraserSizeSelectEl){
   const initialSize = parseInt(eraserSizeSelectEl.value, 10);
@@ -1031,6 +1283,7 @@ document.getElementById('deletePageBtn').onclick=()=>{ if (pages.length===1){ al
 
 /* ========================= 背景・QR・スタンプ ========================= */
 function centerOfCanvas(){ const r=canvas.getBoundingClientRect(); return {x:r.width/2, y:r.height/2}; }
+function centerOfCanvasLogical(){ return screenToLogical(centerOfCanvas()); }
 document.getElementById('bgInput').addEventListener('change', (ev)=>{
   const file = ev.target.files?.[0]; if (!file) return;
   const url = URL.createObjectURL(file); const img = new Image();
@@ -1469,7 +1722,7 @@ if (loanMonthsSelectEl){
 
 
 /* ========================= 保存/読み込み ========================= */
-const PATIENT_EXPORT_VERSION = 2;
+const PATIENT_EXPORT_VERSION = 3;
 function imageToDataURL(img){ try{ const w=img.naturalWidth||img.width; const h=img.naturalHeight||img.height; if (!w||!h) return null; const off=document.createElement('canvas'); off.width=w; off.height=h; const g=off.getContext('2d'); g.drawImage(img,0,0,w,h); return off.toDataURL('image/png'); }catch{return null;} }
 function dataURLToImage(dataUrl){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=()=>rej(new Error('画像読み込み失敗')); img.src=dataUrl; }); }
 async function serializePatientData(){
@@ -1479,7 +1732,22 @@ async function serializePatientData(){
     const strokes=pg.strokes.map(s=>({ mode:s.mode, width:s.width, color:s.color, points:s.points.map(p=>({x:p.x,y:p.y})) }));
     const items=[];
     for (const it of pg.items){
-      const imageData=imageToDataURL(it.img); if (!imageData) missingImages=true;
+      if (isTextItem(it)){
+        items.push({
+          type:'text',
+          x:it.x, y:it.y, w:it.w, h:it.h, angle:it.angle||0,
+          text: it.text || '',
+          fontSize: it.fontSize,
+          lineHeight: it.lineHeight,
+          padding: it.padding,
+          color: it.color,
+          align: it.align
+        });
+        continue;
+      }
+      if (!it || !it.img) continue;
+      const imageData=imageToDataURL(it.img);
+      if (!imageData){ missingImages=true; continue; }
       items.push({ type:it.type, x:it.x, y:it.y, w:it.w, h:it.h, angle:it.angle||0, imageData, qrData: it.type==='qr' ? it.qrData: undefined });
     }
     let bg=null; if (pg.bg){ const imageData=imageToDataURL(pg.bg.img); if (!imageData) missingImages=true;
@@ -1502,8 +1770,29 @@ async function restorePatientData(data){
     pg.items = [];
     if (Array.isArray(pgData.items)){
       for (const item of pgData.items){
-        if (!item||!item.imageData) continue;
-        try{ const img = await dataURLToImage(item.imageData);
+        if (!item) continue;
+        if (item.type === 'text' && typeof item.text === 'string'){
+          const restored = {
+            type:'text',
+            text:item.text,
+            fontSize: Number.isFinite(item.fontSize) && item.fontSize > 0 ? item.fontSize : 24,
+            lineHeight: Number.isFinite(item.lineHeight) && item.lineHeight > 0 ? item.lineHeight : Math.round((Number.isFinite(item.fontSize) && item.fontSize > 0 ? item.fontSize : 24) * 1.35),
+            padding: Number.isFinite(item.padding) && item.padding >= 0 ? item.padding : 16,
+            color: typeof item.color === 'string' && item.color.trim() ? item.color : '#111827',
+            align: (item.align === 'center' || item.align === 'right') ? item.align : 'left',
+            x: typeof item.x === 'number' ? item.x : 0,
+            y: typeof item.y === 'number' ? item.y : 0,
+            w: typeof item.w === 'number' && item.w > 0 ? item.w : 320,
+            h: typeof item.h === 'number' && item.h > 0 ? item.h : undefined,
+            angle: typeof item.angle === 'number' ? item.angle : 0
+          };
+          ensureTextItemLayout(restored);
+          pg.items.push(restored);
+          continue;
+        }
+        if (!item.imageData) continue;
+        try{
+          const img = await dataURLToImage(item.imageData);
           const restored = { type:item.type||'qr', img, x:typeof item.x==='number'?item.x:0, y:typeof item.y==='number'?item.y:0,
             w:typeof item.w==='number'?item.w:(img.naturalWidth||img.width), h:typeof item.h==='number'?item.h:(img.naturalHeight||img.height), angle:typeof item.angle==='number'?item.angle:0 };
           if (restored.type==='qr' && item.qrData) restored.qrData=item.qrData;
