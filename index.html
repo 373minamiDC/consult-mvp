@@ -310,7 +310,7 @@ const TREATMENT_GROUPS = [
 ];
 
 /* ページデータ */
-function makeEstimateRow(){ return { tooth:'', category:'', treatment:'', unitPrice:0, price:0, quantity:1, note:'' }; }
+function makeEstimateRow(){ return { tooth:'', category:'', treatment:'', treatmentLabel:'', unitPrice:0, price:0, quantity:1, note:'' }; }
 function makeEstimateData(){ return { rows:[makeEstimateRow()], loanMonths:12, interestRate:ESTIMATE_INTEREST_RATE }; }
 function makeEmptyPage(kind='blank'){ return { kind, strokes:[], items:[], bg:null, estimate: kind==='estimate'? makeEstimateData(): null }; }
 
@@ -413,7 +413,8 @@ function drawEstimatePage(pg){
   const patientId = document.getElementById('ptId')?.value.trim() || '';
 
   const logicalWidth = canvas.width / view.scale;
-  const margin = Math.max(28, Math.min(48, logicalWidth * 0.06));
+  const logicalHeight = canvas.height / view.scale;
+  const margin = Math.max(60, Math.min(90, logicalWidth * 0.075));
   const tableWidth = logicalWidth - margin * 2;
   if (tableWidth <= 0) return;
 
@@ -462,7 +463,7 @@ function drawEstimatePage(pg){
     const perColumn = columnDefs.map((col, idx)=>{
       let text = '';
       if (col.key === 'tooth') text = row.tooth || '';
-      else if (col.key === 'treatment') text = row.treatment || '';
+      else if (col.key === 'treatment') text = row.treatmentLabel || row.treatment || '';
       else if (col.key === 'quantity') text = row.quantity ? String(row.quantity) : '';
       else if (col.key === 'unitPrice'){
         const unit = Number(row.unitPrice);
@@ -590,7 +591,46 @@ function drawEstimatePage(pg){
   const summaryWidth = Math.min(tableWidth, Math.max(320 * invScale, tableWidth * 0.38));
   const summaryHeight = 108 * invScale;
   const summaryX = margin + tableWidth - summaryWidth;
-  const summaryY = tableBottom + 28 * invScale;
+  const bottomLimit = logicalHeight - margin;
+  let summaryGap = 28 * invScale;
+  let footnoteSpacing = 20 * invScale;
+  const minSummaryGap = 12 * invScale;
+  const minFootnoteSpacing = 10 * invScale;
+  const footnoteBlockHeight = 32 * invScale;
+  const availableAfterTable = Math.max(0, bottomLimit - tableBottom);
+  let requiredHeight = summaryGap + summaryHeight + footnoteSpacing + footnoteBlockHeight;
+  if (requiredHeight > availableAfterTable){
+    let excess = requiredHeight - availableAfterTable;
+    const gapReduction = Math.min(summaryGap - minSummaryGap, excess);
+    if (gapReduction > 0){
+      summaryGap -= gapReduction;
+      excess -= gapReduction;
+    }
+    if (excess > 0){
+      const footnoteReduction = Math.min(footnoteSpacing - minFootnoteSpacing, excess);
+      if (footnoteReduction > 0){
+        footnoteSpacing -= footnoteReduction;
+        excess -= footnoteReduction;
+      }
+    }
+    if (excess > 0){
+      summaryGap = Math.max(0, summaryGap - excess);
+    }
+  }
+  let summaryY = tableBottom + summaryGap;
+  if (summaryY + summaryHeight > bottomLimit){
+    summaryY = Math.max(margin, bottomLimit - (summaryHeight + footnoteSpacing + footnoteBlockHeight));
+  }
+  summaryY = Math.max(margin, summaryY);
+  let footnoteY = summaryY + summaryHeight + footnoteSpacing;
+  if (footnoteY + footnoteBlockHeight > bottomLimit){
+    footnoteSpacing = Math.max(0, bottomLimit - footnoteBlockHeight - (summaryY + summaryHeight));
+    footnoteY = summaryY + summaryHeight + footnoteSpacing;
+    if (footnoteY + footnoteBlockHeight > bottomLimit){
+      footnoteY = Math.max(margin, bottomLimit - footnoteBlockHeight);
+      footnoteSpacing = Math.max(0, footnoteY - (summaryY + summaryHeight));
+    }
+  }
   ctx.fillStyle = '#f9fafb';
   ctx.fillRect(summaryX, summaryY, summaryWidth, summaryHeight);
   ctx.strokeStyle = '#d1d5db';
@@ -625,7 +665,6 @@ function drawEstimatePage(pg){
   ctx.fillText(`(${est.loanMonths}回 / 年利${ratePct}%想定)`, summaryX + 16 * invScale, summaryY + 78 * invScale);
 
   // 備考・注釈
-  const footnoteY = summaryY + summaryHeight + 20 * invScale;
   ctx.font = footnoteFont;
   ctx.fillStyle = '#6b7280';
   ctx.textAlign = 'left';
@@ -1036,6 +1075,11 @@ function normalizeEstimateRow(row){
   row.tooth = typeof row.tooth === 'string' ? row.tooth : '';
   row.category = typeof row.category === 'string' ? row.category : '';
   row.treatment = typeof row.treatment === 'string' ? row.treatment : '';
+  row.treatmentLabel = typeof row.treatmentLabel === 'string' ? row.treatmentLabel : '';
+  if (!row.treatmentLabel && row.category && row.treatment){
+    const { item } = findTreatment(row.category, row.treatment);
+    if (item) row.treatmentLabel = item.label;
+  }
   const qty = parseInt(row.quantity, 10);
   row.quantity = Math.min(99, Math.max(1, Number.isFinite(qty) ? qty : 1));
   row.unitPrice = Number.isFinite(row.unitPrice) ? row.unitPrice : Number(row.unitPrice) || 0;
@@ -1103,6 +1147,7 @@ function serializeEstimate(est){
         tooth: normalized.tooth || '',
         category: normalized.category || '',
         treatment: normalized.treatment || '',
+        treatmentLabel: normalized.treatmentLabel || '',
         quantity: normalized.quantity || 1,
         unitPrice: Number(normalized.unitPrice) || 0,
         price: Number(normalized.price) || 0,
@@ -1243,6 +1288,18 @@ function createEstimateRowElement(row, index, est){
   treatmentSelect.classList.add('estimate-treatment');
   populateTreatmentOptions(treatmentSelect, row.category);
   treatmentSelect.value = row.treatment || '';
+  if (!treatmentSelect.value && row.treatmentLabel){
+    const matched = Array.from(treatmentSelect.options).find(opt=>opt.textContent===row.treatmentLabel);
+    if (matched){
+      treatmentSelect.value = matched.value;
+      row.treatment = matched.value;
+      row.treatmentLabel = matched.textContent;
+    }
+  }
+  if (treatmentSelect.value){
+    const { item } = findTreatment(row.category, treatmentSelect.value);
+    if (item) row.treatmentLabel = item.label;
+  }
   wrapper.appendChild(treatmentSelect);
 
   const quantitySelect = document.createElement('select');
@@ -1283,6 +1340,7 @@ function createEstimateRowElement(row, index, est){
   categorySelect.addEventListener('change', ()=>{
     row.category = categorySelect.value;
     row.treatment = '';
+    row.treatmentLabel = '';
     row.unitPrice = 0;
     row.price = 0;
     populateTreatmentOptions(treatmentSelect, row.category);
@@ -1296,9 +1354,11 @@ function createEstimateRowElement(row, index, est){
     row.treatment = treatmentSelect.value;
     const { item } = findTreatment(row.category, row.treatment);
     if (item){
+      row.treatmentLabel = item.label;
       row.unitPrice = item.price;
       row.price = item.price * row.quantity;
     } else {
+      row.treatmentLabel = '';
       row.unitPrice = 0;
       row.price = 0;
     }
