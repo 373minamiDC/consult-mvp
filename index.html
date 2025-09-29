@@ -430,7 +430,9 @@ function redraw(){
   }
   for (let i=0;i<pg.items.length;i++) drawPlacedImage(pg.items[i]);
   for (const s of pg.strokes) drawStroke(s);
-  if (current) drawStroke(current);
+  for (const entries of activeStrokes.values()){
+    for (const entry of entries) drawStroke(entry.stroke);
+  }
   if (pg.bg && bgSelected) drawSelectionHandles(pg.bg);
   if (selectedIdx>=0 && pg.items[selectedIdx]) drawSelectionHandles(pg.items[selectedIdx]);
 
@@ -1150,6 +1152,7 @@ async function restorePatientData(data){
   drawing = false;
   dragState = null;
   pinchStart = null;
+  activeStrokes.clear();
   pointers.clear();
 
   const patient = data.patient || {};
@@ -1322,12 +1325,63 @@ function hitTestBackground(L){
    入力処理：描画／選択／パンピンチ
 ========================= */
 const pointers=new Map();
+const activeStrokes=new Map(); // pointerId -> queue of pending stroke entries
 let pinchStart=null; // {mid,dist,view}
 let dragState=null;  // {target:'item'|'bg', kind:'move'|'resize'|'rotate', idx, start, itemStart, startAngleScreen?, handleStartLocal?}
 let selectedIdx=-1;
 let bgSelected=false;
 let drawing=false;
 let current=null;
+
+function hasActiveStrokes(){
+  for (const entries of activeStrokes.values()){
+    if (entries.length>0) return true;
+  }
+  return false;
+}
+
+function latestStroke(){
+  let last=null;
+  for (const entries of activeStrokes.values()){
+    if (entries.length>0){
+      last = entries[entries.length-1].stroke;
+    }
+  }
+  return last;
+}
+
+function updateDrawingState(){
+  drawing = hasActiveStrokes();
+  current = latestStroke();
+}
+
+function enqueueStroke(pointerId, stroke){
+  let queue = activeStrokes.get(pointerId);
+  if (!queue){
+    queue = [];
+    activeStrokes.set(pointerId, queue);
+  }
+  const lastPoint = stroke.points[stroke.points.length-1] || null;
+  queue.push({ stroke, lastPoint });
+  updateDrawingState();
+}
+
+function dequeueStroke(pointerId){
+  const queue = activeStrokes.get(pointerId);
+  if (!queue || queue.length===0) return null;
+  const entry = queue.shift();
+  if (queue.length===0){
+    activeStrokes.delete(pointerId);
+  }
+  updateDrawingState();
+  return entry;
+}
+
+function peekStroke(pointerId){
+  const queue = activeStrokes.get(pointerId);
+  if (!queue || queue.length===0) return null;
+  return queue[queue.length-1];
+}
 
 function getEventPoint(e){ const r=canvas.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
 function twoFingerInfo(){ const arr=[...pointers.values()]; const p0=arr[0],p1=arr[1];
@@ -1462,8 +1516,8 @@ canvas.addEventListener('pointerdown',(e)=>{
 
   // 描画
   if (pointers.size===1){
-    drawing=true;
-    current={mode:tool, color:(tool==='pen'?penColor:undefined), width:(tool==='pen'?lineWidthPen:lineWidthHL), points:[screenToLogical(pt)]};
+    const stroke={mode:tool, color:(tool==='pen'?penColor:undefined), width:(tool==='pen'?lineWidthPen:lineWidthHL), points:[screenToLogical(pt)]};
+    enqueueStroke(e.pointerId, stroke);
   } else if (pointers.size===2){
     const {mid,dist}=twoFingerInfo();
     pinchStart={mid,dist,view:{ scale:view.scale, tx:view.tx, ty:view.ty }};
@@ -1515,8 +1569,14 @@ canvas.addEventListener('pointermove',(e)=>{
   }
 
   // 描画
-  if (pointers.size===1 && drawing && current){
-    current.points.push(screenToLogical(pointers.get(e.pointerId))); redraw();
+  if (pointers.size===1){
+    const entry=peekStroke(e.pointerId);
+    if (entry){
+      const logical = screenToLogical(pointers.get(e.pointerId));
+      entry.stroke.points.push(logical);
+      entry.lastPoint = logical;
+      redraw();
+    }
   } else if (pointers.size===2){
     const {mid,dist}=twoFingerInfo();
     if (applyPinchTransform(mid, dist)) redraw();
@@ -1529,18 +1589,30 @@ canvas.addEventListener('pointerup',(e)=>{
 
   if (tool==='select'){ dragState=null; pointers.delete(e.pointerId); if (pointers.size<2) pinchStart=null; return; }
 
-  if (drawing && current && pointers.size===1){
-    const pt=pointers.get(e.pointerId); if (pt) current.points.push(screenToLogical(pt));
-    pg.strokes.push(current);
+  const entry = dequeueStroke(e.pointerId);
+  if (entry){
+    const stroke = entry.stroke;
+    let finalPoint = entry.lastPoint;
+    if (!finalPoint){
+      const pt=pointers.get(e.pointerId);
+      if (pt) finalPoint = screenToLogical(pt);
+    }
+    if (finalPoint) stroke.points.push(finalPoint);
+    pg.strokes.push(stroke);
   }
-  drawing=false; current=null;
 
-  pointers.delete(e.pointerId); if (pointers.size<2) pinchStart=null; redraw();
+  if (!activeStrokes.has(e.pointerId)) pointers.delete(e.pointerId);
+  if (pointers.size<2) pinchStart=null;
+  redraw();
 },{passive:false});
 
 canvas.addEventListener('pointercancel',(e)=>{
-  e.preventDefault(); drawing=false; current=null; dragState=null;
-  pointers.delete(e.pointerId); if (pointers.size<2) pinchStart=null; redraw();
+  e.preventDefault();
+  dragState=null;
+  dequeueStroke(e.pointerId);
+  if (!activeStrokes.has(e.pointerId)) pointers.delete(e.pointerId);
+  if (pointers.size<2) pinchStart=null;
+  redraw();
 },{passive:false});
 
 /* =========================
@@ -1561,14 +1633,26 @@ document.getElementById('toggleLinesBtn').onclick=()=>{ showLines=!showLines; re
 
 document.getElementById('undoBtn').onclick=()=>{
   const pg=currentPage();
-  if (current){ current=null; drawing=false; redraw(); return; }
+  if (hasActiveStrokes()){
+    activeStrokes.clear();
+    updateDrawingState();
+    redraw();
+    return;
+  }
   if (pg.strokes.length>0){ pg.strokes.pop(); redraw(); return; }
   if (pg.items.length>0){ pg.items.pop(); selectedIdx=-1; bgSelected=false; redraw(); return; }
 };
-document.getElementById('clearPenBtn').onclick=()=>{ currentPage().strokes.length=0; redraw(); };
+document.getElementById('clearPenBtn').onclick=()=>{
+  activeStrokes.clear();
+  updateDrawingState();
+  currentPage().strokes.length=0;
+  redraw();
+};
 document.getElementById('clearAllBtn').onclick=()=>{
   if (!confirm('現在ページの背景/スタンプ/描画をすべて消去します。')) return;
   const pg=currentPage();
+  activeStrokes.clear();
+  updateDrawingState();
   pg.strokes.length=0; pg.items.length=0; pg.bg=null;
   selectedIdx=-1; bgSelected=false; redraw();
 };
