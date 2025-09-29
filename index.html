@@ -2,14 +2,18 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>コンサル資料キット（iPad高速ペン版）</title>
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+/>
+<title>コンサル資料キット（iPad高速ペン・即再開版）</title>
 <style>
   :root { --bg:#f7f8fa; --panel:#ffffff; --line:#e5e7eb; --hover:#f0f3f8; --accent:#2563eb; }
   html,body { height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:#1f2937; }
   body { overflow:hidden; }
   #wrap { display:flex; height:100vh; }
-  /* サイドバー（元のUIはほぼそのまま） */
+
+  /* サイドバー */
   #sidebar {
     width:340px; max-width:42vw; min-width:270px;
     background:var(--panel); border-right:1px solid var(--line);
@@ -31,15 +35,15 @@
   input[type=file]{ display:none; }
   label.as-btn { display:block; width:100%; text-align:center; }
 
-  /* キャンバス領域（単一キャンバス） */
+  /* キャンバス領域：単一キャンバス */
   #main { flex:1; display:flex; flex-direction:column; min-width:0; position:relative; overflow:hidden; }
   #canvasPane {
     flex:1; position:relative; margin:12px; border:1px solid var(--line); border-radius:12px; background:#fff;
-    touch-action:none;   /* ← iPadで必須 */
+    touch-action:none;
   }
   canvas#c {
     position:absolute; inset:0; width:100%; height:100%; display:block; background:#fff;
-    touch-action:none;   /* ← iPadで必須 */
+    touch-action:none;
   }
   #hint {
     position:absolute; right:10px; bottom:10px; background:#0007; color:#fff; font-size:12px; padding:6px 8px; border-radius:8px;
@@ -56,7 +60,7 @@
   .swatch { width:28px; height:28px; border-radius:7px; border:1px solid var(--line); cursor:pointer; }
   .swatch.active { outline:2px solid var(--accent); outline-offset:-2px; }
 
-  /* 見積エディタ（UI部は元のまま） */
+  /* 見積エディタ */
   #estimateEditor { display:none; }
   #estimateRows { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
   .estimate-row {
@@ -70,11 +74,19 @@
   .estimate-summary { margin-top:14px; padding-top:10px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
   .estimate-loan { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .estimate-loan select { width:auto; min-width:110px; }
+
+  /* 追加：iPadの“待ち”を根絶 */
+  html, body, #canvasPane, canvas#c {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+  }
 </style>
 </head>
 <body>
 <div id="wrap">
-  <!-- 左サイドバー（必要箇所だけ。元コードの機能は保持） -->
+  <!-- 左サイドバー -->
   <aside id="sidebar">
     <div class="section">
       <h2>ページ</h2>
@@ -183,12 +195,14 @@
   <main id="main">
     <div id="canvasPane">
       <canvas id="c"></canvas>
-      <div id="hint">1本指/ペン:描く　2本指:パン（ズーム固定）</div>
+      <div id="hint">ペン/指:描く　2本指:パン（ズーム固定）</div>
     </div>
   </main>
 </div>
 
+<!-- jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
 <script>
 /* ========================= 基本セットアップ ========================= */
 const canvas = document.getElementById('c');
@@ -229,14 +243,13 @@ function setCanvasSize(){
 }
 new ResizeObserver(setCanvasSize).observe(pane);
 
-/* ========== 描画（単一キャンバス：背景→スタンプ→手描き→UI） ========== */
+/* ========== 描画（単一キャンバス） ========== */
 function clearDevice(){
   const dpr = window.devicePixelRatio || 1;
   const r = canvas.getBoundingClientRect();
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,r.width,r.height);
 }
-
 function renderAll(){
   clearDevice();
   const pg=currentPage();
@@ -251,7 +264,7 @@ function renderAll(){
   }
   // 背景
   if (pg.bg) drawPlacedImage(pg.bg);
-  // 見積ページ
+  // 見積ページ（簡易）
   if (pg.kind==='estimate') drawEstimatePage(pg);
   // スタンプ
   for (const it of pg.items) drawPlacedImage(it);
@@ -273,7 +286,6 @@ function drawPlacedImage(it){
   ctx.drawImage(it.img, -it.w/2, -it.h/2, it.w, it.h);
   ctx.restore();
 }
-
 function drawStroke(s){
   if (!s.points || s.points.length<2) return;
   ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
@@ -291,6 +303,15 @@ function drawPatientInfo(){
   ctx.save(); ctx.fillStyle='#374151'; ctx.font='12px system-ui, sans-serif'; ctx.textBaseline='top';
   ctx.fillText(`${name}${name && id ? ' ' : ''}${id}`, 10, 10);
   ctx.restore();
+}
+
+/* ====== 見積（簡易描画ダミー。必要なら詳細表へ拡張可） ====== */
+const ESTIMATE_INTEREST_RATE = 0.039;
+const currencyFormatter = new Intl.NumberFormat('ja-JP');
+function makeEstimateRow(){ return { tooth:'', category:'', treatment:'', unitPrice:0, price:0, quantity:1, note:'' }; }
+function makeEstimateData(){ return { rows:[makeEstimateRow()], loanMonths:12, interestRate:ESTIMATE_INTEREST_RATE }; }
+function drawEstimatePage(pg){
+  // 必要に応じて元の詳細テーブルを移植してください（ペン遅延対策には影響しません）
 }
 
 /* ====== 低遅延ストローク（即時描画） ====== */
@@ -331,12 +352,19 @@ function endStroke(){
   currentStroke=null; drawing=false;
 }
 
-/* ポインタ（Apple Pencil 含む） */
+/* ====== ペンイベント（“待ち”を無くす改良版） ====== */
 canvas.addEventListener('pointerdown', (e)=>{
-  // iPad Safariでスクロール抑止
   e.preventDefault();
-  if (tool!=='pen' && tool!=='hl') return;
-  canvas.setPointerCapture?.(e.pointerId);
+  e.stopPropagation();
+
+  // 稀に pointerup が落ちた時の未確定ストローク掃除
+  if (drawing && currentStroke) endStroke();
+
+  // （必要なら）ペン以外を無視する場合：if (e.pointerType && e.pointerType!=='pen' && e.pointerType!=='touch') return;
+
+  // すぐ次の pointerdown を阻害しないよう capture を確実に取る
+  try { canvas.setPointerCapture(e.pointerId); } catch {}
+
   const pts = getCoalescedPoints(e);
   const start = pts[pts.length-1];
   beginStroke(tool, tool==='pen'?penColor:undefined, tool==='pen'?lineWidthPen:lineWidthHL, start);
@@ -352,15 +380,20 @@ canvas.addEventListener('pointermove', (e)=>{
 
 canvas.addEventListener('pointerup', (e)=>{
   e.preventDefault();
+  e.stopPropagation();
   if (drawing) endStroke();
+  // ★ ここが重要：capture を必ず解放（これで次ストロークが即始まる）
+  try { canvas.releasePointerCapture(e.pointerId); } catch {}
 }, { passive:false });
 
 canvas.addEventListener('pointercancel', (e)=>{
   e.preventDefault();
+  e.stopPropagation();
   currentStroke=null; drawing=false;
+  try { canvas.releasePointerCapture(e.pointerId); } catch {}
 }, { passive:false });
 
-/* rawupdate（対応環境のみ・さらに低遅延） */
+/* rawupdate（任意。さらに低遅延） */
 canvas.addEventListener('pointerrawupdate', (e)=>{
   if (!drawing) return;
   if (tool!=='pen' && tool!=='hl') return;
@@ -378,7 +411,7 @@ function setTool(next){
 }
 btns.pen.onclick=()=>setTool('pen');
 btns.hl .onclick=()=>setTool('hl');
-btns.sel.onclick=()=>setTool('select'); // 選択機能は後述（最低限のまま）
+btns.sel.onclick=()=>setTool('select'); // 選択は簡易のまま（必要に応じて拡張可）
 
 [['colorBlack','#111'],['colorRed','#e11d48'],['colorBlue','#2563eb'],['colorYel','#f59e0b']].forEach(([id,col])=>{
   const el=document.getElementById(id);
@@ -396,7 +429,7 @@ document.getElementById('undoBtn').onclick=()=>{
 };
 document.getElementById('clearPenBtn').onclick=()=>{ currentPage().strokes.length=0; renderAll(); };
 
-/* ====== 罫線・ページ・保存など（機能は元の通り。処理は簡略化） ====== */
+/* ====== 罫線・ページ ====== */
 document.getElementById('toggleLinesBtn').onclick=()=>{ showLines=!showLines; renderAll(); };
 function updatePageIndicator(){ document.getElementById('pageIndicator').textContent = `${pageIndex+1} / ${pages.length}`; }
 document.getElementById('addPageBtn').onclick=()=>{ const t=(document.getElementById('newPageTemplate')||{}).value||'blank'; pages.splice(pageIndex+1,0, makeEmptyPage(t)); pageIndex++; updatePageIndicator(); renderAll(); };
@@ -410,7 +443,7 @@ document.getElementById('deletePageBtn').onclick=()=>{
   updatePageIndicator(); renderAll();
 };
 
-/* ====== 背景画像・QR・スタンプ（最低限） ====== */
+/* ====== 背景画像・QR・スタンプ ====== */
 document.getElementById('bgInput').addEventListener('change', (ev)=>{
   const file = ev.target.files?.[0]; if (!file) return;
   const url = URL.createObjectURL(file);
@@ -479,23 +512,14 @@ function makeCrownStamp(){
   const img=new Image(); img.src=off.toDataURL('image/png'); return img;
 }
 
-/* ====== 見積（UIは最小限、描画は従来のまま） ====== */
-const ESTIMATE_INTEREST_RATE = 0.039;
-const currencyFormatter = new Intl.NumberFormat('ja-JP');
-function makeEstimateRow(){ return { tooth:'', category:'', treatment:'', unitPrice:0, price:0, quantity:1, note:'' }; }
-function makeEstimateData(){ return { rows:[makeEstimateRow()], loanMonths:12, interestRate:ESTIMATE_INTEREST_RATE }; }
-function drawEstimatePage(pg){
-  // 必要に応じて（ここでは省略版。元の見積表を移植するならこの関数に集約してください）
-  // まずはペンの即応性を最優先に安定化しています。
-}
-
-/* ====== PDF保存（画面そのままPNG化） ====== */
+/* ====== PDF保存（画面PNG合成） ====== */
 document.getElementById('saveBtn').onclick=async()=>{
   const jspdf = window.jspdf;
   if (!jspdf || !jspdf.jsPDF){ alert('PDFライブラリ読み込みに失敗しました'); return; }
   const r = canvas.getBoundingClientRect(); if (!r.width || !r.height){ alert('キャンバスサイズ取得失敗'); return; }
   const orientation = r.width >= r.height ? 'landscape' : 'portrait';
   const pdf = new jspdf.jsPDF({ orientation, unit:'px', format:[r.width, r.height] });
+
   const off = document.createElement('canvas'); off.width=r.width; off.height=r.height; const g=off.getContext('2d');
   const prevIndex=pageIndex;
   try{
@@ -512,7 +536,7 @@ document.getElementById('saveBtn').onclick=async()=>{
   }finally{ pageIndex=prevIndex; renderAll(); }
 };
 
-/* ====== プリセットQR（UIのみ保持。中身は同様） ====== */
+/* ====== プリセットQR ====== */
 const PRESET_KEY='consult_qr_presets_v2';
 const DEFAULT_PRESETS=[
  {label:'補綴物', data:'https://minami-dentalclinic.com/クラウンによる歯冠修復治療/'},
@@ -558,6 +582,7 @@ function init(){
   setCanvasSize();
   updatePageIndicator();
   renderAll();
+  // Safariの「デスクトップ用Webサイト」オフ推奨
 }
 init();
 </script>
