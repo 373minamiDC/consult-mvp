@@ -3,23 +3,21 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>コンサル資料キット（汎用スタライス対応・遅延ゼロ）</title>
+<title>コンサル資料キット（スタライス連続筆記＋全機能）</title>
 <style>
   :root { --bg:#f7f8fa; --panel:#ffffff; --line:#e5e7eb; --hover:#f0f3f8; --accent:#2563eb; }
   html,body { height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:#1f2937; }
   body { overflow:hidden; -webkit-text-size-adjust:100%; }
   * { -webkit-tap-highlight-color: transparent; }
+
   #wrap { display:flex; height:100vh; }
 
-  /* サイドバー（最低限） */
-  #sidebar {
-    width:340px; max-width:42vw; min-width:270px;
-    background:var(--panel); border-right:1px solid var(--line);
-    display:flex; flex-direction:column; gap:14px; padding:14px; box-sizing:border-box; overflow-y:auto;
-  }
+  /* 左サイドバー */
+  #sidebar { width:340px; max-width:42vw; min-width:270px; background:var(--panel); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; gap:14px; padding:14px; box-sizing:border-box; overflow-y:auto; }
   #sidebar h2 { font-size:14px; margin:0 0 6px; color:#374151; }
   .section { padding:10px; border:1px solid var(--line); border-radius:12px; background:#fff; }
-  .row { display:flex; gap:8px; align-items:center; }
+  .row { display:flex; gap:8px; }
   .full { width:100%; }
   .muted { color:#6b7280; font-size:12px; margin-top:6px; }
   button, label.as-btn, select, input[type=text], input[type=number], textarea {
@@ -33,20 +31,29 @@
   input[type=file]{ display:none; }
   label.as-btn { display:block; width:100%; text-align:center; }
 
-  /* キャンバス（単一） */
+  /* 色スウォッチ */
+  .swatch { width:28px; height:28px; border-radius:7px; border:1px solid var(--line); cursor:pointer; }
+  .swatch.active { outline:2px solid var(--accent); outline-offset:-2px; }
+
+  /* 見積 */
+  #estimateEditor { display:none; }
+  #estimateRows { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+  .estimate-row { display:grid; gap:10px; grid-template-columns:repeat(2, minmax(0, 1fr));
+    align-items:flex-start; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f9fafb; }
+  .estimate-row .estimate-tooth { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:6px; grid-column:1/-1; }
+  .estimate-row .estimate-note { grid-column:1/-1; min-height:52px; }
+  @media (max-width:600px){ .estimate-row { grid-template-columns:1fr; } }
+  .mini-btn { padding:6px 10px; font-size:12px; border-radius:8px; }
+  .estimate-summary { margin-top:14px; padding-top:10px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
+  .estimate-loan { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .estimate-loan select { width:auto; min-width:110px; }
+
+  /* 右側キャンバス */
   #main { flex:1; display:flex; flex-direction:column; min-width:0; position:relative; overflow:hidden; }
-  #canvasPane {
-    flex:1; position:relative; margin:12px; border:1px solid var(--line); border-radius:12px; background:#fff;
-    touch-action:none;
-  }
-  canvas#c {
-    position:absolute; inset:0; width:100%; height:100%; display:block; background:#fff;
-    touch-action:none;
-  }
-  #hint {
-    position:absolute; right:10px; bottom:10px; background:#0007; color:#fff; font-size:12px; padding:6px 8px; border-radius:8px;
-    pointer-events:none;
-  }
+  #canvasPane { flex:1; position:relative; margin:12px; border:1px solid var(--line); border-radius:12px; background:#fff; touch-action:none; }
+  canvas { position:absolute; inset:0; width:100%; height:100%; display:block; background:#fff; touch-action:none; }
+  #hint { position:absolute; right:10px; bottom:10px; background:#0007; color:#fff; font-size:12px; padding:6px 8px; border-radius:8px; pointer-events:none; }
+
   @media (max-width: 900px) {
     body { overflow:auto; }
     #wrap { flex-direction:column; height:auto; }
@@ -54,12 +61,8 @@
     #canvasPane { margin:10px; height:calc(100vh - 420px); }
   }
 
-  /* 色スウォッチ */
-  .swatch { width:28px; height:28px; border-radius:7px; border:1px solid var(--line); cursor:pointer; }
-  .swatch.active { outline:2px solid var(--accent); outline-offset:-2px; }
-
-  /* iOSのテキスト選択/コールアウト抑止（全域） */
-  html, body, #canvasPane, canvas#c {
+  /* iOS テキスト選択/コールアウト抑止 */
+  html, body, #canvasPane, canvas {
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
@@ -69,24 +72,115 @@
 </head>
 <body>
 <div id="wrap">
-  <!-- 左サイドバー（必要なUIだけ） -->
+  <!-- 左サイドバー -->
   <aside id="sidebar">
+    <!-- ページ -->
+    <div class="section">
+      <h2>ページ</h2>
+      <div class="row">
+        <button id="prevPageBtn" class="full">◀︎ 前</button>
+        <div id="pageIndicator" class="full" style="text-align:center; padding:8px;">1 / 1</div>
+        <button id="nextPageBtn" class="full">次 ▶︎</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button id="addPageBtn" class="full">ページ追加</button>
+        <button id="deletePageBtn" class="full">現在ページ削除</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <select id="newPageTemplate" class="full">
+          <option value="blank">白紙ページ</option>
+          <option value="estimate">見積書ページ</option>
+        </select>
+      </div>
+      <div class="muted">※ ページごとに背景・スタンプ・線を保持します</div>
+    </div>
+
+    <!-- 患者情報 -->
+    <div class="section">
+      <h2>患者情報</h2>
+      <div class="row"><input id="ptName" class="full" type="text" placeholder="患者名"></div>
+      <div class="row" style="margin-top:6px"><input id="ptId" class="full" type="text" placeholder="ID / 診察券番号"></div>
+      <div class="muted">左上に小さく表示（保存にも反映）</div>
+    </div>
+
+    <!-- 見積 -->
+    <div class="section" id="estimateEditor">
+      <h2>見積書</h2>
+      <div class="muted">見積書ページを選択すると編集できます</div>
+      <div id="estimateRows"></div>
+      <button id="addEstimateRowBtn" class="full" style="margin-top:10px">行を追加</button>
+      <div class="estimate-summary">
+        <strong id="estimateTotalDisplay">合計（税込）：¥0</strong>
+        <div class="estimate-loan">
+          <label for="loanMonthsSelect">デンタルローン回数</label>
+          <select id="loanMonthsSelect">
+            <option value="6">6 回</option><option value="12">12 回</option><option value="18">18 回</option>
+            <option value="24">24 回</option><option value="36">36 回</option><option value="48">48 回</option><option value="60">60 回</option>
+          </select>
+          <div>月々約 <span id="estimateMonthlyDisplay">¥0</span></div>
+        </div>
+        <div class="muted">※ 年利3.9%で自動計算されます</div>
+      </div>
+    </div>
+
+    <!-- 保存・共有 -->
+    <div class="section">
+      <h2>患者データ保存 / 共有</h2>
+      <div class="row"><button id="exportPatientBtn" class="full">患者データを書き出し</button></div>
+      <label class="as-btn" style="margin-top:6px"><input id="importPatientInput" type="file" accept="application/json">患者データを読み込む</label>
+      <div class="muted">※ 保存したJSONをAirDropなどで共有すると他のiPadでも続きを開けます</div>
+    </div>
+
+    <!-- 描画 -->
     <div class="section">
       <h2>描画ツール</h2>
       <div class="row">
         <button id="penBtn" class="full active">ペン</button>
-        <button id="hlBtn"  class="full">蛍光</button>
-        <button id="undoBtn" class="full">元に戻す</button>
+        <button id="hlBtn" class="full">蛍光</button>
+        <button id="selectBtn" class="full" title="スタンプの移動・回転・サイズ変更">選択</button>
       </div>
       <div class="row" style="margin-top:8px; align-items:center">
         <div id="colorBlack" class="swatch active" title="黒" style="background:#111"></div>
-        <div id="colorRed"   class="swatch" title="赤" style="background:#e11d48"></div>
-        <div id="colorBlue"  class="swatch" title="青" style="background:#2563eb"></div>
-        <div id="colorYel"   class="swatch" title="黄" style="background:#f59e0b"></div>
+        <div id="colorRed" class="swatch" title="赤" style="background:#e11d48"></div>
+        <div id="colorBlue" class="swatch" title="青" style="background:#2563eb"></div>
+        <div id="colorYel" class="swatch" title="黄" style="background:#f59e0b"></div>
         <span class="muted" style="margin-left:6px">※色はペンのみ</span>
       </div>
       <div class="row" style="margin-top:8px">
+        <button id="undoBtn" class="full">元に戻す</button>
         <button id="clearPenBtn" class="full" title="手描きのみクリア">描画クリア</button>
+      </div>
+    </div>
+
+    <!-- 画像・QR・スタンプ -->
+    <div class="section">
+      <h2>画像・QR・既定スタンプ</h2>
+      <label class="as-btn"><input id="bgInput" type="file" accept="image/*">背景画像を読み込む</label>
+      <button id="qrBtn" class="full" title="URL/テキストを入力してQR配置">自由入力のQRを追加</button>
+      <div class="row" style="margin-top:8px">
+        <button id="implantBtn" class="full" title="インプラントスタンプ">インプラント</button>
+        <button id="crownBtn" class="full" title="被せ物（クラウン）スタンプ">被せ物</button>
+      </div>
+      <button id="clearAllBtn" class="full" style="margin-top:8px" title="現在ページを全消去">現在ページ 全消去</button>
+    </div>
+
+    <!-- 説明QRプリセット -->
+    <div class="section">
+      <h2>説明QR（プリセット）</h2>
+      <div class="row"><select id="qrPresetSelect" class="full"></select></div>
+      <div class="row" style="margin-top:6px"><button id="placePresetBtn" class="full">この説明をQRで配置</button></div>
+      <div class="row" style="margin-top:10px"><input id="presetLabel" class="full" type="text" placeholder="追加ラベル（例：インプラント説明）"></div>
+      <div class="row" style="margin-top:6px"><input id="presetData" class="full" type="text" placeholder="URL または テキスト"></div>
+      <div class="row" style="margin-top:6px"><button id="addPresetBtn" class="full">候補を追加</button></div>
+      <div class="muted">※ 候補はブラウザに保存され、次回も表示されます</div>
+    </div>
+
+    <!-- 表示・出力 -->
+    <div class="section">
+      <h2>表示 / 出力</h2>
+      <div class="row">
+        <button id="toggleLinesBtn" class="full">罫線 ON/OFF</button>
+        <button id="saveBtn" class="full">PDF保存（全ページ）</button>
       </div>
     </div>
   </aside>
@@ -95,187 +189,355 @@
   <main id="main">
     <div id="canvasPane">
       <canvas id="c"></canvas>
-      <div id="hint">スタライスペン/指/マウス：描く（離してすぐ次を書けます）</div>
+      <div id="hint">1本指/スタライス:描く　2本指:パン固定　上の丸=回転　右下=拡大縮小</div>
     </div>
   </main>
 </div>
 
+<!-- jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
-/* ===== OSのジェスチャ/クリック派生を全ブロック ===== */
+/* ===== 端末ジェスチャ抑止（iOS） ===== */
 ['gesturestart','gesturechange','gestureend'].forEach(t=>{
   window.addEventListener(t, e=>{ if (e.cancelable) e.preventDefault(); }, { passive:false });
 });
-['click','dblclick','contextmenu'].forEach(t=>{
-  document.addEventListener(t, e=>{
-    // 描画中やキャンバスクリック時の合成クリックを殺す
-    if (e.target === canvas || canvas.contains(e.target)) {
-      if (e.cancelable) e.preventDefault();
-      e.stopPropagation();
-    }
-  }, { capture:true, passive:false });
-});
 
-/* ========================= 基本セットアップ ========================= */
+/* ========================= 基本・状態 ========================= */
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d', { alpha:true, desynchronized:true });
 const pane = document.getElementById('canvasPane');
 
-let tool = 'pen';              // 'pen' | 'hl'
+let tool = 'pen'; // 'pen' | 'hl' | 'select'
 let lineWidthPen = 3;
 let lineWidthHL  = 16;
 let penColor = '#111';
 
-const strokes = []; // 既存ストロークのみ（ページ機能等は省略：まずは“書ける”最優先）
+let showLines = false;
+const LINE_STEP = 30;
 
-/* ========== DPRとサイズ ========== */
+const HANDLE_SIZE = 16;
+const ROT_HANDLE_OFFSET = 28;
+
+const ESTIMATE_INTEREST_RATE = 0.039;
+const currencyFormatter = new Intl.NumberFormat('ja-JP');
+
+const TOOTH_SIDE_OPTIONS = ['', '右', '左'];
+const TOOTH_VERTICAL_OPTIONS = ['', '上', '下'];
+const TOOTH_NUMBER_OPTIONS = Array.from({length:8}, (_,i)=>String(i+1));
+const QUANTITY_OPTIONS = Array.from({length:99}, (_,i)=>i+1);
+
+/* ページデータ */
+function makeEstimateRow(){ return { tooth:'', category:'', treatment:'', unitPrice:0, price:0, quantity:1, note:'' }; }
+function makeEstimateData(){ return { rows:[makeEstimateRow()], loanMonths:12, interestRate:ESTIMATE_INTEREST_RATE }; }
+function makeEmptyPage(kind='blank'){ return { kind, strokes:[], items:[], bg:null, estimate: kind==='estimate'? makeEstimateData(): null }; }
+
+let pages = [makeEmptyPage('blank')];
+let pageIndex = 0;
+function currentPage(){ return pages[pageIndex]; }
+
+/* ビューは固定スケール（パンのみ） */
+const view = { scale:1, tx:0, ty:0 };
+
+/* ========================= DPRとサイズ ========================= */
 function setCanvasSize(){
   const dpr = window.devicePixelRatio || 1;
   const r = canvas.getBoundingClientRect();
   const w = Math.max(1, Math.floor(r.width*dpr));
   const h = Math.max(1, Math.floor(r.height*dpr));
-  if (canvas.width!==w || canvas.height!==h){
-    canvas.width = w; canvas.height = h;
-  }
+  if (canvas.width!==w || canvas.height!==h){ canvas.width=w; canvas.height=h; }
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  renderAll();
+  redraw();
 }
 new ResizeObserver(setCanvasSize).observe(pane);
 
-/* ========== 描画 ========== */
-function clearDevice(){
+/* ========================= 変換補助 ========================= */
+function applyView(){
   const dpr = window.devicePixelRatio || 1;
-  const r = canvas.getBoundingClientRect();
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.clearRect(0,0,r.width,r.height);
+  ctx.transform(view.scale,0,0,view.scale,view.tx,view.ty);
 }
-function renderAll(){
+function screenToLogical(pt){
+  return { x:(pt.x - view.tx)/view.scale, y:(pt.y - view.ty)/view.scale };
+}
+
+/* ========================= レンダリング ========================= */
+function clearDevice(){
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+function redraw(){
   clearDevice();
-  for (const s of strokes) drawStroke(s);
+  applyView();
+  const pg = currentPage();
+
+  if (pg.kind==='blank' && showLines) drawHorizontalLines(LINE_STEP);
+  if (pg.bg) drawPlacedImage(pg.bg);
+  if (pg.kind==='estimate') drawEstimatePage(pg);
+  for (const it of pg.items) drawPlacedImage(it);
+  for (const s of pg.strokes) drawStroke(s);
+  drawPatientInfo();
+
+  // 選択ハンドル（選択中）
+  if (bgSelected && pg.bg) drawSelectionHandles(pg.bg);
+  if (selectedIdx>=0 && pg.items[selectedIdx]) drawSelectionHandles(pg.items[selectedIdx]);
+
+  updatePageIndicator();
 }
-function drawStroke(s){
-  if (!s.points || s.points.length<2) return;
+function drawHorizontalLines(step){
   ctx.save();
-  ctx.lineCap='round'; ctx.lineJoin='round';
-  if (s.mode==='pen'){ ctx.globalAlpha=1; ctx.strokeStyle=s.color||'#111'; ctx.lineWidth=s.width||lineWidthPen; }
-  else { ctx.globalAlpha=0.28; ctx.strokeStyle='#ffd600'; ctx.lineWidth=s.width||lineWidthHL; }
+  ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1 / view.scale;
+  const w = canvas.width / view.scale, h = canvas.height / view.scale;
+  const startX = -view.tx / view.scale, startY = -view.ty / view.scale;
+  const endX = startX + w, endY = startY + h;
   ctx.beginPath();
-  ctx.moveTo(s.points[0].x, s.points[0].y);
-  for (let i=1;i<s.points.length;i++) ctx.lineTo(s.points[i].x, s.points[i].y);
+  const y0 = Math.floor(startY / step) * step;
+  for (let y = y0; y < endY; y += step) { ctx.moveTo(startX, y); ctx.lineTo(endX, y); }
   ctx.stroke();
   ctx.restore();
 }
-
-/* ========== 即時ストローク ========== */
-let drawing=false;
-let currentStroke=null;
-
-function getCanvasPointFromClient(x, y){
-  const r = canvas.getBoundingClientRect();
-  return { x: x - r.left, y: y - r.top };
+function drawEstimatePage(pg){
+  // 簡易ヘッダのみ（元の詳細表は長いので割愛したい場合は既存のままでもOK）
+  const rect = canvas.getBoundingClientRect();
+  const left = 24, top = 24;
+  ctx.save();
+  ctx.fillStyle = '#111';
+  ctx.font = `${28/view.scale}px system-ui, sans-serif`;
+  ctx.fillText('見積書', left, top);
+  ctx.restore();
+}
+function drawPatientInfo(){
+  const name = document.getElementById('ptName').value.trim();
+  const id = document.getElementById('ptId').value.trim();
+  if (!name && !id) return;
+  ctx.save(); ctx.fillStyle='#374151'; ctx.font=`${12/view.scale}px system-ui, sans-serif`; ctx.textBaseline='top';
+  ctx.fillText(`${name}${name && id ? ' ' : ''}${id}`, 10, 10);
+  ctx.restore();
+}
+function drawStroke(s){
+  if (!s.points || s.points.length<2) return;
+  ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+  if (s.mode==='pen'){ ctx.globalAlpha=1; ctx.strokeStyle=s.color||'#111'; ctx.lineWidth=s.width||lineWidthPen; }
+  else { ctx.globalAlpha=0.28; ctx.strokeStyle='#ffd600'; ctx.lineWidth=s.width||lineWidthHL; }
+  ctx.beginPath();
+  ctx.moveTo(s.points[0].x,s.points[0].y);
+  for (let i=1;i<s.points.length;i++) ctx.lineTo(s.points[i].x,s.points[i].y);
+  ctx.stroke(); ctx.restore();
+}
+function getItemCenter(it){ return { cx: it.x + it.w/2, cy: it.y + it.h/2 }; }
+function drawPlacedImage(it){
+  const {cx, cy} = getItemCenter(it);
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(it.angle||0);
+  ctx.drawImage(it.img, -it.w/2, -it.h/2, it.w, it.h);
+  ctx.restore();
+}
+function drawSelectionHandles(it){
+  const {cx, cy} = getItemCenter(it);
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(it.angle||0);
+  ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1 / view.scale;
+  ctx.setLineDash([4 / view.scale, 3 / view.scale]); ctx.strokeRect(-it.w/2, -it.h/2, it.w, it.h); ctx.setLineDash([]);
+  const r = HANDLE_SIZE/2;
+  ctx.fillStyle = '#2563eb'; ctx.fillRect(it.w/2 - r, it.h/2 - r, HANDLE_SIZE, HANDLE_SIZE);
+  const rotY = -it.h/2 - ROT_HANDLE_OFFSET;
+  ctx.beginPath(); ctx.moveTo(0, -it.h/2); ctx.lineTo(0, rotY); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, rotY, HANDLE_SIZE*0.6, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
 }
 
-/* ---- Touch Events（スタライスペン=タッチ扱いを確実にカバー） ---- */
+/* ========================= 当たり判定（選択ツール） ========================= */
+function worldToLocal(pt, it){ const {cx, cy} = getItemCenter(it); const a = -(it.angle || 0); const dx = pt.x - cx, dy = pt.y - cy; return { x: dx*Math.cos(a) - dy*Math.sin(a), y: dx*Math.sin(a) + dy*Math.cos(a) }; }
+function localHitTest(ptLocal, it){
+  const halfW = it.w/2, halfH = it.h/2;
+  const inBody = (ptLocal.x>=-halfW && ptLocal.x<=halfW && ptLocal.y>=-halfH && ptLocal.y<=halfH);
+  const r = HANDLE_SIZE/2;
+  const inResize = (ptLocal.x>=halfW-r && ptLocal.x<=halfW+r && ptLocal.y>=halfH-r && ptLocal.y<=halfH+r);
+  const rotY = -halfH - ROT_HANDLE_OFFSET;
+  const inRotate = ((ptLocal.x)**2 + (ptLocal.y-rotY)**2) <= (HANDLE_SIZE*0.6)**2;
+  return { inBody, inResize, inRotate };
+}
+function hitTestItem(L){
+  const pg=currentPage();
+  for (let i=pg.items.length-1;i>=0;i--){
+    const it=pg.items[i]; const local=worldToLocal(L,it); const h=localHitTest(local,it);
+    if (h.inRotate) return {kind:'rotate', idx:i};
+    if (h.inResize) return {kind:'resize', idx:i};
+    if (h.inBody)   return {kind:'body', idx:i};
+  }
+  return {kind:'none', idx:-1};
+}
+function hitTestBackground(L){
+  const bg=currentPage().bg; if (!bg) return {kind:'none', idx:-1};
+  const local=worldToLocal(L,bg); const h=localHitTest(local,bg);
+  if (h.inRotate) return {kind:'rotate', idx:-1};
+  if (h.inResize) return {kind:'resize', idx:-1};
+  if (h.inBody)   return {kind:'body', idx:-1};
+  return {kind:'none', idx:-1};
+}
+
+/* ========================= 入力処理：描画（タッチ優先）/ 選択 / パン ========================= */
+const pointers=new Map();
+let dragState=null; // {target:'item'|'bg', kind:'move'|'resize'|'rotate', idx, start, itemStart, startAngleScreen?, handleStartLocal?}
+let selectedIdx=-1; let bgSelected=false;
+
+/* ---- 即時ストローク（タッチ優先） ---- */
+let drawing=false; let current=null;
+
+function getEventPoint(e){ const r=canvas.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+function getTouchPoint(t){ const r=canvas.getBoundingClientRect(); return {x:t.clientX-r.left, y:t.clientY-r.top}; }
+
+function beginStroke(mode, color, width, startPt){
+  current = { mode, color, width, points:[screenToLogical(startPt)] };
+  drawing = true;
+}
+function appendStrokePoints(pts){
+  if (!current || !pts.length) return;
+  const arr=current.points;
+  ctx.save(); applyView();
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  if (current.mode==='pen'){ ctx.globalAlpha=1; ctx.strokeStyle=current.color||'#111'; ctx.lineWidth=current.width||lineWidthPen; }
+  else { ctx.globalAlpha=0.28; ctx.strokeStyle='#ffd600'; ctx.lineWidth=current.width||lineWidthHL; }
+  let prev = arr[arr.length-1];
+  ctx.beginPath(); ctx.moveTo(prev.x, prev.y);
+  for (const p of pts){ const L=screenToLogical(p); arr.push(L); ctx.lineTo(L.x,L.y); }
+  ctx.stroke(); ctx.restore();
+}
+function endStroke(){
+  if (!current) return; currentPage().strokes.push(current); current=null; drawing=false; // 既に即時描画済みなので全体再描画は不要
+}
+
+/* ---- Touch Events：スタライス（タッチ扱い）を完全対応 ---- */
 function onTouchStart(e){
   if (e.cancelable) e.preventDefault();
+  if (tool!=='pen' && tool!=='hl') return; // 選択ツール中は描画しない
   if (!e.touches || e.touches.length===0) return;
-  // 複数本の指が来ても、最初の1本で描画（必要なら2本指パン等を後で実装）
-  const t = e.touches[0];
-  const p = getCanvasPointFromClient(t.clientX, t.clientY);
-  beginStroke(tool, tool==='pen'?penColor:undefined, tool==='pen'?lineWidthPen:lineWidthHL, p);
+  const t = e.touches[0]; beginStroke(tool, tool==='pen'?penColor:undefined, tool==='pen'?lineWidthPen:lineWidthHL, getTouchPoint(t));
 }
 function onTouchMove(e){
   if (!drawing) return;
   if (e.cancelable) e.preventDefault();
   if (!e.touches || e.touches.length===0) return;
-  const t = e.touches[0];
-  const p = getCanvasPointFromClient(t.clientX, t.clientY);
-  appendStrokePoints([p]);
+  const t = e.touches[0]; appendStrokePoints([getTouchPoint(t)]);
 }
 function onTouchEnd(e){
   if (e.cancelable) e.preventDefault();
-  // 指が全部離れた時だけ確定
   if (e.touches && e.touches.length>0) return;
   if (drawing) endStroke();
 }
-function onTouchCancel(e){
-  if (e.cancelable) e.preventDefault();
-  cancelStroke();
-}
+function onTouchCancel(e){ if (e.cancelable) e.preventDefault(); current=null; drawing=false; }
 
-/* ---- Pointer/Mouse もサポート（マウスでも同様に速い） ---- */
-function onPointerDown(e){
+/* ---- Pointer：選択操作＆マウス描画（必要なら） ---- */
+function angleTo(it, ptWorld){ const {cx,cy}=getItemCenter(it); return Math.atan2(ptWorld.y-cy, ptWorld.x-cx); }
+function worldPtFromEvent(e){ return screenToLogical(getEventPoint(e)); }
+
+canvas.addEventListener('pointerdown',(e)=>{
   if (e.cancelable) e.preventDefault();
-  const p = getCanvasPointFromClient(e.clientX, e.clientY);
-  beginStroke(tool, tool==='pen'?penColor:undefined, tool==='pen'?lineWidthPen:lineWidthHL, p);
-}
-function onPointerMove(e){
-  if (!drawing) return;
+  const pt=getEventPoint(e); pointers.set(e.pointerId, pt);
+  const pg=currentPage();
+
+  if (tool==='select'){
+    const L=screenToLogical(pt);
+    const hit=hitTestItem(L);
+    if (hit.idx>=0){
+      selectedIdx=hit.idx; bgSelected=false;
+      const it=pg.items[selectedIdx];
+      if (hit.kind==='rotate'){
+        dragState={ target:'item', kind:'rotate', idx:selectedIdx, start:L, itemStart:{...it}, startAngleScreen:angleTo(it,L) };
+      } else if (hit.kind==='resize'){
+        const copy={...it}; dragState={ target:'item', kind:'resize', idx:selectedIdx, start:L, itemStart:copy, handleStartLocal:worldToLocal(L, copy) };
+      } else {
+        dragState={ target:'item', kind:'move', idx:selectedIdx, start:L, itemStart:{...it} };
+      }
+    } else {
+      const bgHit=hitTestBackground(L);
+      if (bgHit.kind!=='none'){
+        selectedIdx=-1; bgSelected=true;
+        const bg=pg.bg;
+        if (!bg){ dragState=null; }
+        else if (bgHit.kind==='rotate'){
+          dragState={ target:'bg', kind:'rotate', idx:-1, start:L, itemStart:{...bg}, startAngleScreen:angleTo(bg,L) };
+        } else if (bgHit.kind==='resize'){
+          const copy={...bg}; dragState={ target:'bg', kind:'resize', idx:-1, start:L, itemStart:copy, handleStartLocal:worldToLocal(L, copy) };
+        } else {
+          dragState={ target:'bg', kind:'move', idx:-1, start:L, itemStart:{...bg} };
+        }
+      } else {
+        selectedIdx=-1; bgSelected=false; dragState=null;
+      }
+    }
+    redraw();
+    return;
+  }
+
+  // ペン/蛍光をPointerでも使いたい人向け（マウスや純正ペンでも可）
+  if (tool==='pen' || tool==='hl'){
+    beginStroke(tool, tool==='pen'?penColor:undefined, tool==='pen'?lineWidthPen:lineWidthHL, pt);
+  }
+},{passive:false});
+
+canvas.addEventListener('pointermove',(e)=>{
   if (e.cancelable) e.preventDefault();
-  const p = getCanvasPointFromClient(e.clientX, e.clientY);
-  appendStrokePoints([p]);
-}
-function onPointerUp(e){
+  const pg=currentPage();
+
+  if (tool==='select'){
+    if (!dragState) return;
+    const L=worldPtFromEvent(e);
+    const target = dragState.target==='bg' ? pg.bg : pg.items[dragState.idx];
+    if (!target) return;
+
+    if (dragState.kind==='move'){
+      const dx=L.x-dragState.start.x, dy=L.y-dragState.start.y;
+      target.x=dragState.itemStart.x+dx; target.y=dragState.itemStart.y+dy; redraw();
+    } else if (dragState.kind==='resize'){
+      const localNow=worldToLocal(L, dragState.itemStart);
+      const startLocal = dragState.handleStartLocal || {x:dragState.itemStart.w/2, y:dragState.itemStart.h/2};
+      let scaleX = startLocal.x ? localNow.x / startLocal.x : 1;
+      let scaleY = startLocal.y ? localNow.y / startLocal.y : 1;
+      if (!Number.isFinite(scaleX) || scaleX===0) scaleX=1;
+      if (!Number.isFinite(scaleY) || scaleY===0) scaleY=1;
+      const baseW=dragState.itemStart.w, baseH=dragState.itemStart.h;
+      const newW=Math.max(40, Math.abs(baseW*scaleX));
+      const newH=Math.max(40, Math.abs(baseH*scaleY));
+      const {cx,cy}=getItemCenter(dragState.itemStart);
+      target.w=newW; target.h=newH; target.x=cx-target.w/2; target.y=cy-target.h/2; redraw();
+    } else if (dragState.kind==='rotate'){
+      const ang0=dragState.startAngleScreen; const ang1=angleTo(dragState.itemStart,L);
+      target.angle=(dragState.itemStart.angle||0)+(ang1-ang0); redraw();
+    }
+    return;
+  }
+
+  // 追従描画（Pointer経由）
+  if (drawing && (tool==='pen' || tool==='hl')) appendStrokePoints([getEventPoint(e)]);
+},{passive:false});
+
+canvas.addEventListener('pointerup',(e)=>{
   if (e.cancelable) e.preventDefault();
+  dragState=null;
   if (drawing) endStroke();
-}
-function onPointerCancel(e){
+},{passive:false});
+
+canvas.addEventListener('pointercancel',(e)=>{
   if (e.cancelable) e.preventDefault();
-  cancelStroke();
-}
+  dragState=null; current=null; drawing=false;
+},{passive:false});
 
-/* ---- 核心：即時描画（再レンダを挟まない） ---- */
-function beginStroke(mode, color, width, startPt){
-  // 未確定が残っていたら掃除
-  if (drawing && currentStroke) endStroke();
-  currentStroke = { mode, color, width, points:[startPt] };
-  drawing = true;
-}
-function appendStrokePoints(pts){
-  if (!currentStroke || !pts.length) return;
-  const arr = currentStroke.points;
-
-  ctx.save();
-  ctx.lineCap='round'; ctx.lineJoin='round';
-  if (currentStroke.mode==='pen'){ ctx.globalAlpha=1; ctx.strokeStyle=currentStroke.color||'#111'; ctx.lineWidth=currentStroke.width||lineWidthPen; }
-  else { ctx.globalAlpha=0.28; ctx.strokeStyle='#ffd600'; ctx.lineWidth=currentStroke.width||lineWidthHL; }
-
-  let prev = arr[arr.length-1];
-  ctx.beginPath(); ctx.moveTo(prev.x, prev.y);
-  for (const p of pts){ arr.push(p); ctx.lineTo(p.x, p.y); }
-  ctx.stroke();
-  ctx.restore();
-}
-function endStroke(){
-  if (!currentStroke) return;
-  strokes.push(currentStroke);
-  currentStroke=null; drawing=false;
-}
-function cancelStroke(){
-  currentStroke=null; drawing=false;
-}
-
-/* ====== イベント登録（全て passive:false） ====== */
-// Touch（スタライスペン最重要）
+/* Touch（スタライス/指での描画） */
 canvas.addEventListener('touchstart', onTouchStart, { passive:false });
 canvas.addEventListener('touchmove',  onTouchMove,  { passive:false });
 canvas.addEventListener('touchend',   onTouchEnd,   { passive:false });
 canvas.addEventListener('touchcancel',onTouchCancel,{ passive:false });
 
-// Pointer/Mouse
-canvas.addEventListener('pointerdown', onPointerDown, { passive:false });
-canvas.addEventListener('pointermove', onPointerMove, { passive:false });
-canvas.addEventListener('pointerup',   onPointerUp,   { passive:false });
-canvas.addEventListener('pointercancel', onPointerCancel, { passive:false });
-
-/* ====== ツール＆色 ====== */
-const btns={ pen:document.getElementById('penBtn'), hl:document.getElementById('hlBtn') };
+/* ========================= ツールUI ========================= */
+const btns={ pen:document.getElementById('penBtn'), hl:document.getElementById('hlBtn'), sel:document.getElementById('selectBtn') };
 function setTool(next){
   tool=next;
   btns.pen.classList.toggle('active', tool==='pen');
   btns.hl .classList.toggle('active', tool==='hl');
+  btns.sel.classList.toggle('active', tool==='select');
+  if (tool!=='select'){ selectedIdx=-1; bgSelected=false; dragState=null; redraw(); }
 }
 btns.pen.onclick=()=>setTool('pen');
 btns.hl .onclick=()=>setTool('hl');
+btns.sel.onclick=()=>setTool('select');
 
 [['colorBlack','#111'],['colorRed','#e11d48'],['colorBlue','#2563eb'],['colorYel','#f59e0b']].forEach(([id,col])=>{
   const el=document.getElementById(id);
@@ -285,18 +547,272 @@ btns.hl .onclick=()=>setTool('hl');
   });
 });
 
-/* ====== Undo / クリア ====== */
+/* ========================= Undo / クリア / 罫線 ========================= */
 document.getElementById('undoBtn').onclick=()=>{
-  if (drawing && currentStroke){ currentStroke=null; drawing=false; return; }
-  if (strokes.length>0){ strokes.pop(); renderAll(); }
+  const pg=currentPage();
+  if (drawing && current){ current=null; drawing=false; return; }
+  if (pg.strokes.length>0){ pg.strokes.pop(); redraw(); }
 };
-document.getElementById('clearPenBtn').onclick=()=>{ strokes.length=0; renderAll(); };
+document.getElementById('clearPenBtn').onclick=()=>{ currentPage().strokes.length=0; redraw(); };
+document.getElementById('toggleLinesBtn').onclick=()=>{ showLines=!showLines; redraw(); };
 
-/* ====== 初期化 ====== */
-function init(){
-  setCanvasSize();
-  renderAll();
+/* ========================= ページ操作 ========================= */
+function updatePageIndicator(){ document.getElementById('pageIndicator').textContent = `${pageIndex+1} / ${pages.length}`; }
+document.getElementById('addPageBtn').onclick=()=>{ const t=(document.getElementById('newPageTemplate')||{}).value||'blank'; pages.splice(pageIndex+1,0, makeEmptyPage(t)); pageIndex++; selectedIdx=-1; bgSelected=false; redraw(); refreshEstimateEditor(); updatePageIndicator(); };
+document.getElementById('prevPageBtn').onclick=()=>{ if (pageIndex>0){ pageIndex--; selectedIdx=-1; bgSelected=false; redraw(); refreshEstimateEditor(); updatePageIndicator(); } };
+document.getElementById('nextPageBtn').onclick=()=>{ if (pageIndex<pages.length-1){ pageIndex++; selectedIdx=-1; bgSelected=false; redraw(); refreshEstimateEditor(); updatePageIndicator(); } };
+document.getElementById('deletePageBtn').onclick=()=>{ if (pages.length===1){ alert('これ以上削除できません'); return; } if (!confirm(`ページ${pageIndex+1}を削除しますか？`)) return; pages.splice(pageIndex,1); pageIndex=Math.max(0, Math.min(pageIndex, pages.length-1)); selectedIdx=-1; bgSelected=false; redraw(); refreshEstimateEditor(); updatePageIndicator(); };
+
+/* ========================= 背景・QR・スタンプ ========================= */
+function centerOfCanvas(){ const r=canvas.getBoundingClientRect(); return {x:r.width/2, y:r.height/2}; }
+document.getElementById('bgInput').addEventListener('change', (ev)=>{
+  const file = ev.target.files?.[0]; if (!file) return;
+  const url = URL.createObjectURL(file); const img = new Image();
+  img.onload = ()=>{ const baseW=img.naturalWidth||img.width||1; const baseH=img.naturalHeight||img.height||1; const r=canvas.getBoundingClientRect();
+    const maxW=r.width*0.8, maxH=r.height*0.8; let scale=Math.min(maxW/baseW, maxH/baseH); if (!Number.isFinite(scale)||scale<=0) scale=1; scale=Math.min(scale,1)*0.9;
+    const w=Math.max(40, baseW*scale), h=Math.max(40, baseH*scale); const center=centerOfCanvas(); const pg=currentPage();
+    pg.bg={ img, x:center.x-w/2, y:center.y-h/2, w, h, angle:0 }; selectedIdx=-1; bgSelected=true; redraw(); URL.revokeObjectURL(url); ev.target.value=''; };
+  img.src = url;
+});
+document.getElementById('qrBtn').addEventListener('click', ()=>{ const data = prompt('QRにするURLまたはテキスト：', 'https://minami-dentalclinic.com'); if (!data) return; const size = 240; const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`; const img = new Image(); img.crossOrigin = 'anonymous'; img.onload = ()=>{ const initW=180, initH=180; const center = centerOfCanvas(); const pg = currentPage(); pg.items.push({ type:'qr', qrData:data, img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 }); selectedIdx = pg.items.length - 1; bgSelected=false; redraw(); }; img.onerror = ()=> alert('QR画像の取得に失敗しました。'); img.src = src; });
+document.getElementById('implantBtn').addEventListener('click', ()=>{ const img = makeImplantStamp(); const initW=180, initH=320; const center = centerOfCanvas(); const pg = currentPage(); pg.items.push({ type:'implant', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 }); selectedIdx = pg.items.length - 1; bgSelected=false; redraw(); });
+document.getElementById('crownBtn').addEventListener('click', ()=>{ const img = makeCrownStamp(); const initW=260, initH=220; const center = centerOfCanvas(); const pg = currentPage(); pg.items.push({ type:'crown', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 }); selectedIdx = pg.items.length - 1; bgSelected=false; redraw(); });
+
+function makeImplantStamp(){ const w=180, h=320, off=document.createElement('canvas'); off.width=w; off.height=h; const g=off.getContext('2d');
+  g.fillStyle = '#e5e7eb'; g.strokeStyle = '#9ca3af'; g.lineWidth = 2; g.beginPath(); g.roundRect(50, 20, 80, 50, 10); g.fill(); g.stroke();
+  g.fillStyle = '#d1d5db'; g.fillRect(75, 70, 30, 18);
+  g.fillStyle = '#cbd5e1'; g.strokeStyle = '#94a3b8'; g.lineWidth = 2; g.beginPath(); g.roundRect(60, 88, 60, 180, 20); g.fill(); g.stroke();
+  g.strokeStyle = '#94a3b8'; g.lineWidth = 2; for (let y=100;y<250;y+=14){ g.beginPath(); g.moveTo(62,y); g.lineTo(118,y+16); g.stroke(); }
+  g.fillStyle = '#cbd5e1'; g.beginPath(); g.moveTo(60,268); g.lineTo(120,268); g.lineTo(90,300); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = 'rgba(0,0,0,0.05)'; g.beginPath(); g.ellipse(90, 310, 45, 8, 0, 0, Math.PI*2); g.fill();
+  const img=new Image(); img.src=off.toDataURL('image/png'); return img; }
+function makeCrownStamp(){ const w=260, h=220, off=document.createElement('canvas'); off.width=w; off.height=h; const g=off.getContext('2d');
+  g.fillStyle = '#ffffff'; g.strokeStyle = '#94a3b8'; g.lineWidth = 2; g.beginPath();
+  g.moveTo(40,140); g.bezierCurveTo(40,90, 70,60, 110,60); g.bezierCurveTo(125,35, 135,30, 150,60); g.bezierCurveTo(190,60, 220,90, 220,140);
+  g.bezierCurveTo(220,175, 200,190, 130,190); g.bezierCurveTo(70,190, 40,175, 40,140); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.ellipse(120,95,60,20,-0.4,0,Math.PI*2); g.fill();
+  g.strokeStyle = '#cbd5e1'; g.lineWidth=1.5; g.beginPath(); g.moveTo(90,120); g.quadraticCurveTo(130,110,170,120);
+  g.moveTo(110,140); g.quadraticCurveTo(130,135,150,140); g.stroke();
+  g.fillStyle = 'rgba(0,0,0,0.06)'; g.beginPath(); g.ellipse(130,205,70,10,0,0,Math.PI*2); g.fill();
+  const img=new Image(); img.src=off.toDataURL('image/png'); return img; }
+
+/* ========================= 見積エディタ（最小限：合計・月額反映） ========================= */
+const estimateEditorEl = document.getElementById('estimateEditor');
+const estimateRowsEl = document.getElementById('estimateRows');
+const estimateTotalDisplayEl = document.getElementById('estimateTotalDisplay');
+const estimateMonthlyDisplayEl = document.getElementById('estimateMonthlyDisplay');
+const loanMonthsSelectEl = document.getElementById('loanMonthsSelect');
+const addEstimateRowBtn = document.getElementById('addEstimateRowBtn');
+
+function normalizeEstimateRow(row){ if (!row||typeof row!=='object') return makeEstimateRow();
+  row.tooth = typeof row.tooth==='string'?row.tooth:''; row.category=typeof row.category==='string'?row.category:''; row.treatment=typeof row.treatment==='string'?row.treatment:'';
+  const qty = parseInt(row.quantity,10); row.quantity = Math.min(99, Math.max(1, Number.isFinite(qty)?qty:1));
+  row.unitPrice = Number.isFinite(row.unitPrice)? row.unitPrice : Number(row.unitPrice)||0;
+  const priceNum = Number(row.price); row.price = Number.isFinite(priceNum)? priceNum : row.unitPrice * row.quantity;
+  row.note = typeof row.note==='string'?row.note:''; return row;
 }
+function ensureEstimateDataForPage(pg){ if (!pg.estimate) pg.estimate=makeEstimateData(); const est=pg.estimate;
+  if (!Array.isArray(est.rows)||est.rows.length===0) est.rows=[makeEstimateRow()];
+  est.rows = est.rows.map(r=>normalizeEstimateRow({...r}));
+  const months=parseInt(est.loanMonths,10); est.loanMonths=Math.min(60, Math.max(1, Number.isFinite(months)?months:12));
+  est.interestRate = Number.isFinite(est.interestRate)? est.interestRate : ESTIMATE_INTEREST_RATE; return est;
+}
+function getRowTotal(row){ const qty=Math.max(1, parseInt(row.quantity,10)||1); const base=Number(row.unitPrice)||0; return Math.round(base*qty || row.price||0); }
+function calculateEstimateTotal(est){ if (!est||!Array.isArray(est.rows)) return 0; return est.rows.reduce((s,r)=> s+getRowTotal(r), 0); }
+function calculateMonthlyPayment(amount, months, annualRate){ if (!months||months<=0||!amount) return 0; const principal=Math.max(0,amount); const r=annualRate>0? annualRate/12:0; if (r===0) return principal/months; return principal*r/(1-Math.pow(1+r,-months)); }
+function formatCurrency(n){ const v=Math.round(n||0); return `¥${currencyFormatter.format(v)}`; }
+
+function refreshEstimateEditor(){
+  const pg=currentPage();
+  if (!pg || pg.kind!=='estimate'){ estimateEditorEl.style.display='none'; return; }
+  const est = ensureEstimateDataForPage(pg);
+  estimateEditorEl.style.display='block';
+
+  estimateRowsEl.innerHTML='';
+  est.rows.forEach((row, idx)=>{
+    const wrapper=document.createElement('div'); wrapper.className='estimate-row';
+
+    // 部位（簡易1フィールド）
+    const tooth=document.createElement('input'); tooth.type='text'; tooth.placeholder='部位（例：右上6）'; tooth.value=row.tooth||'';
+    tooth.oninput=()=>{ row.tooth=tooth.value; redraw(); };
+    wrapper.appendChild(tooth);
+
+    // 内容
+    const treat=document.createElement('input'); treat.type='text'; treat.placeholder='治療内容'; treat.value=row.treatment||'';
+    treat.oninput=()=>{ row.treatment=treat.value; redraw(); };
+    wrapper.appendChild(treat);
+
+    // 個数
+    const qty=document.createElement('input'); qty.type='number'; qty.min='1'; qty.value=String(row.quantity||1);
+    qty.oninput=()=>{ const q=parseInt(qty.value,10)||1; row.quantity=Math.min(99,Math.max(1,q)); updateEstimateSummaryOnly(est); redraw(); };
+    wrapper.appendChild(qty);
+
+    // 単価
+    const unit=document.createElement('input'); unit.type='number'; unit.min='0'; unit.step='100'; unit.value=String(row.unitPrice||0);
+    unit.oninput=()=>{ row.unitPrice=Number(unit.value)||0; updateEstimateSummaryOnly(est); redraw(); };
+    wrapper.appendChild(unit);
+
+    // 備考
+    const note=document.createElement('textarea'); note.className='estimate-note'; note.placeholder='備考'; note.value=row.note||'';
+    note.oninput=()=>{ row.note=note.value; redraw(); };
+    wrapper.appendChild(note);
+
+    // 削除
+    const del=document.createElement('button'); del.type='button'; del.className='mini-btn'; del.textContent='削除';
+    del.onclick=()=>{ if (est.rows.length<=1){ Object.assign(row, makeEstimateRow()); } else { est.rows.splice(idx,1); } refreshEstimateEditor(); redraw(); };
+    wrapper.appendChild(del);
+
+    estimateRowsEl.appendChild(wrapper);
+  });
+
+  if (loanMonthsSelectEl) loanMonthsSelectEl.value=String(est.loanMonths);
+  updateEstimateSummaryOnly(est);
+}
+function updateEstimateSummaryOnly(est){
+  const total = calculateEstimateTotal(est);
+  if (estimateTotalDisplayEl) estimateTotalDisplayEl.textContent = `合計（税込）：${formatCurrency(total)}`;
+  const monthly = calculateMonthlyPayment(total, est.loanMonths, est.interestRate||ESTIMATE_INTEREST_RATE);
+  if (estimateMonthlyDisplayEl) estimateMonthlyDisplayEl.textContent = formatCurrency(monthly);
+}
+if (addEstimateRowBtn){ addEstimateRowBtn.onclick=()=>{ const pg=currentPage(); if (!pg || pg.kind!=='estimate'){ alert('見積書ページを選択してください'); return; } const est=ensureEstimateDataForPage(pg); est.rows.push(makeEstimateRow()); refreshEstimateEditor(); redraw(); }; }
+if (loanMonthsSelectEl){ loanMonthsSelectEl.onchange=()=>{ const pg=currentPage(); if (!pg || pg.kind!=='estimate') return; const months = Math.min(60, Math.max(1, parseInt(loanMonthsSelectEl.value,10)||12)); pg.estimate.loanMonths=months; refreshEstimateEditor(); redraw(); }; }
+
+/* ========================= 保存/読み込み ========================= */
+const PATIENT_EXPORT_VERSION = 2;
+function imageToDataURL(img){ try{ const w=img.naturalWidth||img.width; const h=img.naturalHeight||img.height; if (!w||!h) return null; const off=document.createElement('canvas'); off.width=w; off.height=h; const g=off.getContext('2d'); g.drawImage(img,0,0,w,h); return off.toDataURL('image/png'); }catch{return null;} }
+function dataURLToImage(dataUrl){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=()=>rej(new Error('画像読み込み失敗')); img.src=dataUrl; }); }
+async function serializePatientData(){
+  const patient={ name:document.getElementById('ptName').value.trim(), id:document.getElementById('ptId').value.trim() };
+  const serializedPages=[]; let missingImages=false;
+  for (const pg of pages){
+    const strokes=pg.strokes.map(s=>({ mode:s.mode, width:s.width, color:s.color, points:s.points.map(p=>({x:p.x,y:p.y})) }));
+    const items=[];
+    for (const it of pg.items){
+      const imageData=imageToDataURL(it.img); if (!imageData) missingImages=true;
+      items.push({ type:it.type, x:it.x, y:it.y, w:it.w, h:it.h, angle:it.angle||0, imageData, qrData: it.type==='qr' ? it.qrData: undefined });
+    }
+    let bg=null; if (pg.bg){ const imageData=imageToDataURL(pg.bg.img); if (!imageData) missingImages=true;
+      bg={ x:pg.bg.x, y:pg.bg.y, w:pg.bg.w, h:pg.bg.h, angle:pg.bg.angle||0, imageData }; }
+    const pagePayload={ kind: pg.kind==='estimate' ? 'estimate' : 'blank', strokes, items, bg };
+    if (pg.kind==='estimate'){ const est=ensureEstimateDataForPage(pg); pagePayload.estimate = { rows: est.rows, loanMonths: est.loanMonths, interestRate: est.interestRate }; }
+    serializedPages.push(pagePayload);
+  }
+  const payload={ version:PATIENT_EXPORT_VERSION, exportedAt:new Date().toISOString(), patient, showLines, view:{...view}, pages:serializedPages };
+  return { payload, missingImages };
+}
+async function restorePatientData(data){
+  if (!data||typeof data!=='object') throw new Error('形式が正しくありません');
+  const newPages=[];
+  const pageList=Array.isArray(data.pages)?data.pages:[];
+  for (const pgData of pageList){
+    const kind = pgData && pgData.kind==='estimate' ? 'estimate' : 'blank';
+    const pg = makeEmptyPage(kind);
+    pg.strokes = Array.isArray(pgData.strokes)? pgData.strokes.map(s=>({ mode:(s.mode==='hl'?'hl':'pen'), width: typeof s.width==='number'?s.width:(s.mode==='hl'?lineWidthHL:lineWidthPen), color:s.color, points:Array.isArray(s.points)? s.points.map(p=>({x:p.x,y:p.y})) : [] })) : [];
+    pg.items = [];
+    if (Array.isArray(pgData.items)){
+      for (const item of pgData.items){
+        if (!item||!item.imageData) continue;
+        try{ const img = await dataURLToImage(item.imageData);
+          const restored = { type:item.type||'qr', img, x:typeof item.x==='number'?item.x:0, y:typeof item.y==='number'?item.y:0,
+            w:typeof item.w==='number'?item.w:(img.naturalWidth||img.width), h:typeof item.h==='number'?item.h:(img.naturalHeight||img.height), angle:typeof item.angle==='number'?item.angle:0 };
+          if (restored.type==='qr' && item.qrData) restored.qrData=item.qrData;
+          pg.items.push(restored);
+        }catch{}
+      }
+    }
+    if (pgData.bg && pgData.bg.imageData){
+      try{ const bgImg = await dataURLToImage(pgData.bg.imageData);
+        pg.bg = { img:bgImg, x:pgData.bg.x||0, y:pgData.bg.y||0, w:pgData.bg.w||bgImg.width, h:pgData.bg.h||bgImg.height, angle:pgData.bg.angle||0 };
+      }catch{}
+    }
+    if (kind==='estimate'){ const estData=pgData.estimate||{}; pg.estimate.rows = Array.isArray(estData.rows)&&estData.rows.length? estData.rows.map(r=>normalizeEstimateRow({...r})) : [makeEstimateRow()]; const loan=parseInt(estData.loanMonths,10); pg.estimate.loanMonths=Math.min(60,Math.max(1, Number.isFinite(loan)?loan:12)); const ir=Number(estData.interestRate); pg.estimate.interestRate=Number.isFinite(ir)?ir:ESTIMATE_INTEREST_RATE; }
+    newPages.push(pg);
+  }
+  pages = newPages.length? newPages : [makeEmptyPage('blank')];
+  pageIndex=0; selectedIdx=-1; bgSelected=false; current=null; drawing=false; dragState=null;
+  document.getElementById('ptName').value = (data.patient||{}).name||'';
+  document.getElementById('ptId').value   = (data.patient||{}).id||'';
+  if (typeof data.showLines==='boolean') showLines=data.showLines;
+  view.scale=1; view.tx=0; view.ty=0;
+  redraw(); refreshEstimateEditor(); updatePageIndicator();
+}
+function sanitizeFileName(str){ return (str||'').replace(/[\\/:*?"<>|]/g,'_').slice(0,40)||'patient'; }
+
+document.getElementById('exportPatientBtn').onclick=async()=>{
+  try{ const {payload, missingImages} = await serializePatientData();
+    const namePart = sanitizeFileName(payload.patient.id || payload.patient.name || 'patient');
+    const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download=`${namePart}_${ts}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    if (missingImages) alert('一部の画像を取得できなかったため、書き出しデータに含まれない可能性があります。');
+  }catch(e){ console.error(e); alert('患者データの書き出しに失敗しました。'); }
+};
+document.getElementById('importPatientInput').addEventListener('change', async(ev)=>{
+  const file = ev.target.files?.[0]; if (!file) return;
+  try{ const text = await file.text(); const data=JSON.parse(text); await restorePatientData(data); alert('患者データを読み込みました。'); }
+  catch(e){ console.error(e); alert('患者データの読み込みに失敗しました。'); }
+  finally{ ev.target.value=''; }
+});
+
+/* ========================= PDF保存（全ページ） ========================= */
+document.getElementById('saveBtn').onclick=async()=>{
+  const jspdf=window.jspdf; if (!jspdf||!jspdf.jsPDF){ alert('PDFライブラリ読み込みに失敗しました'); return; }
+  const r=canvas.getBoundingClientRect(); if (!r.width||!r.height){ alert('キャンバスサイズ取得失敗'); return; }
+  const orientation = r.width>=r.height ? 'landscape':'portrait';
+  const pdf = new jspdf.jsPDF({ orientation, unit:'px', format:[r.width, r.height] });
+  const prevIndex=pageIndex;
+  try{
+    for (let i=0;i<pages.length;i++){
+      pageIndex=i; selectedIdx=-1; bgSelected=false; current=null; redraw();
+      const dataUrl = await new Promise(res=>{ requestAnimationFrame(()=> res(canvas.toDataURL('image/png'))); });
+      if (i>0) pdf.addPage([r.width, r.height], orientation);
+      pdf.addImage(dataUrl, 'PNG', 0,0, r.width, r.height);
+    }
+    const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    pdf.save(`consult_pages_${ts}.pdf`);
+  }catch(e){ console.error(e); alert('PDFの作成に失敗しました'); }
+  finally{ pageIndex=prevIndex; redraw(); }
+};
+
+/* ========================= プリセットQR ========================= */
+const PRESET_KEY='consult_qr_presets_v2';
+const DEFAULT_PRESETS=[
+ {label:'補綴物', data:'https://minami-dentalclinic.com/クラウンによる歯冠修復治療/'},
+ {label:'CR', data:'https://minami-dentalclinic.com/コンポジットレジン修復（cr修復%EF%BC%8Fcr充填）/'},
+ {label:'インレー', data:'https://minami-dentalclinic.com/インレー修復/'},
+ {label:'ブリッジ', data:'https://minami-dentalclinic.com/ブリッジ/'},
+ {label:'歯周治療', data:'https://minami-dentalclinic.com/歯周病治療/'},
+ {label:'抜髄治療', data:'https://minami-dentalclinic.com/抜髄治療/'},
+ {label:'感染根管治療', data:'https://minami-dentalclinic.com/感染根管治療/'},
+ {label:'総義歯', data:'https://minami-dentalclinic.com/総義歯/'},
+ {label:'部分床義歯', data:'https://minami-dentalclinic.com/部分床義歯/'},
+ {label:'インプラント', data:'https://minami-dentalclinic.com/インプラント/'},
+ {label:'中間欠損', data:'https://minami-dentalclinic.com/１歯欠損で両隣に歯がある場合の治療法（インプ/'},
+ {label:'7番欠損', data:'https://minami-dentalclinic.com/７番欠損（６番は残存）時の治療法/'}
+];
+function loadPresets(){ const raw=localStorage.getItem(PRESET_KEY); let p=[]; if (raw){ try{ p=JSON.parse(raw)||[]; }catch{} } if (p.length===0){ p=DEFAULT_PRESETS.slice(); localStorage.setItem(PRESET_KEY, JSON.stringify(p)); } return p; }
+function refreshPresetSelect(){ const sel=document.getElementById('qrPresetSelect'); const presets=loadPresets(); sel.innerHTML=''; presets.forEach((p,i)=>{ const opt=document.createElement('option'); opt.value=String(i); opt.textContent=p.label; sel.appendChild(opt); }); }
+document.getElementById('placePresetBtn').onclick=()=>{
+  const i=parseInt(document.getElementById('qrPresetSelect').value,10); const list=loadPresets();
+  if (isNaN(i)||!list[i]){ alert('候補を選択してください'); return; }
+  const data=list[i].data; const size=240; const src=`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
+  const img=new Image(); img.crossOrigin='anonymous';
+  img.onload=()=>{ const initW=180, initH=180; const center=centerOfCanvas(); const pg=currentPage(); pg.items.push({ type:'qr', qrData:data, img, x:center.x-initW/2, y:center.y-initH/2, w:initW, h:initH, angle:0 }); selectedIdx=pg.items.length-1; bgSelected=false; redraw(); };
+  img.onerror=()=>alert('QR画像の取得に失敗しました。'); img.src=src;
+};
+document.getElementById('addPresetBtn').onclick=()=>{
+  const label=document.getElementById('presetLabel').value.trim();
+  const data =document.getElementById('presetData').value.trim();
+  if (!label||!data){ alert('ラベルとURL/テキストを入力してください'); return; }
+  const list=loadPresets(); list.push({label,data}); localStorage.setItem(PRESET_KEY, JSON.stringify(list));
+  document.getElementById('presetLabel').value=''; document.getElementById('presetData').value='';
+  refreshPresetSelect(); alert('候補を追加しました');
+};
+
+/* ========================= 初期化 ========================= */
+function init(){ refreshPresetSelect(); setCanvasSize(); refreshEstimateEditor(); updatePageIndicator(); }
 init();
 </script>
 </body>
