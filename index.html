@@ -357,7 +357,7 @@ function makeEmptyPage(kind='blank'){
 
 /* ビュー（パン／ズーム固定）は全ページ共通 */
 const view = { scale:1, tx:0, ty:0 };
-const CANVAS_SCALE_LOCKED = true;
+const CANVAS_SCALE_LOCKED = false;
 const MIN_SCALE = CANVAS_SCALE_LOCKED ? 1 : 0.3;
 const MAX_SCALE = CANVAS_SCALE_LOCKED ? 1 : 6;
 
@@ -379,6 +379,29 @@ new ResizeObserver(setCanvasSize).observe(pane);
 /* =========================
    変換
 ========================= */
+function clampViewForPage(){
+  const pg = currentPage();
+  if (!pg) return false;
+  if (pg.kind === 'blank'){
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height){
+      const changed = view.tx !== 0 || view.ty !== 0;
+      view.tx = 0;
+      view.ty = 0;
+      return changed;
+    }
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const desiredTx = centerX - centerX * view.scale;
+    const desiredTy = centerY - centerY * view.scale;
+    const changed = view.tx !== desiredTx || view.ty !== desiredTy;
+    view.tx = desiredTx;
+    view.ty = desiredTy;
+    return changed;
+  }
+  return false;
+}
+
 function applyView(){
   const dpr = window.devicePixelRatio || 1;
   ctx.setTransform(dpr,0,0,dpr,0,0);
@@ -392,6 +415,7 @@ function screenToLogical(pt){ return { x:(pt.x - view.tx)/view.scale, y:(pt.y - 
 function clearDevice(){ ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height); }
 
 function redraw(){
+  clampViewForPage();
   clearDevice();
   applyView();
 
@@ -1313,6 +1337,15 @@ function angleTo(it, ptWorld){ const {cx,cy}=getItemCenter(it); return Math.atan
 function applyPinchTransform(mid, dist){
   if (!pinchStart) return false;
   const base = pinchStart.view;
+  const pg = currentPage();
+  if (pg && pg.kind === 'blank'){
+    let s = base.scale * (dist / pinchStart.dist);
+    s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+    const scaleChanged = view.scale !== s;
+    view.scale = s;
+    const clampChanged = clampViewForPage();
+    return scaleChanged || clampChanged;
+  }
   if (CANVAS_SCALE_LOCKED){
     const nextScale = 1;
     const nextTx = base.tx + (mid.x - pinchStart.mid.x);
@@ -1333,7 +1366,7 @@ function applyPinchTransform(mid, dist){
   view.scale = s;
   view.tx = nextTx;
   view.ty = nextTy;
-  return changed;
+  return clampViewForPage() || changed;
 }
 
 canvas.addEventListener('pointerdown',(e)=>{
