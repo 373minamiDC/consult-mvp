@@ -495,7 +495,12 @@ function applyView(){
 
 function getLogicalCanvasSize(){
   const dpr = window.devicePixelRatio || 1;
-  return { w: canvas.width / (dpr * view.scale), h: canvas.height / (dpr * view.scale) };
+  return { w: canvas.width / (dpr * view.scale), h: canvas.height / (dpr * view.scale) }
+function onePx(){
+  const dpr = window.devicePixelRatio || 1;
+  return 1 / (dpr * view.scale);
+}
+;
 }
 function screenToLogical(pt){
   return { x:(pt.x - view.tx)/view.scale, y:(pt.y - view.ty)/view.scale };
@@ -599,7 +604,12 @@ function drawEstimatePage(pg){
   if (tableWidth <= 0) return;
   const tableX = marginLeft + (availableWidth - tableWidth) / 2;
 
-  const headingFont = `${30 * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
+  
+  // ensure inside by 1 device-px inset to avoid right-edge clipping on Safari
+  const px = onePx();
+  const tableX_inset = tableX + px;
+  const tableWidth_inset = tableWidth - px*2;
+const headingFont = `${30 * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
   const subHeadingFont = `${12 * invScale}px system-ui, sans-serif`;
   const bodyFontSize = 13;
   const bodyFont = `${bodyFontSize * invScale}px 'Noto Sans JP', system-ui, sans-serif`;
@@ -689,7 +699,7 @@ function drawEstimatePage(pg){
     ctx.fillStyle = '#111827';
     ctx.textAlign = 'right';
     infoLines.forEach((line, idx)=>{
-      ctx.fillText(line, tableX + tableWidth, marginTop + idx * (18 * invScale));
+      ctx.fillText(line, tableX_inset + tableWidth_inset, marginTop + idx * (18 * invScale));
     });
   }
 
@@ -697,12 +707,12 @@ function drawEstimatePage(pg){
 
   // テーブル背景
   ctx.fillStyle = '#f3f4f6';
-  ctx.fillRect(tableX, tableTop, tableWidth, headerHeight);
+  ctx.fillRect(tableX_inset, tableTop, tableWidth_inset, headerHeight);
 
   let rowY = tableTop + headerHeight;
   rowsInfo.forEach((info, idx)=>{
     ctx.fillStyle = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
-    ctx.fillRect(tableX, rowY, tableWidth, info.height);
+    ctx.fillRect(tableX_inset, rowY, tableWidth_inset, info.height);
     rowY += info.height;
   });
 
@@ -711,7 +721,7 @@ function drawEstimatePage(pg){
   ctx.fillStyle = '#374151';
   ctx.textBaseline = 'middle';
   columnDefs.forEach((col, idx)=>{
-    const colX = tableX + columnOffsets[idx];
+    const colX = tableX_inset + columnOffsets[idx];
     const colWidth = columnWidths[idx];
     let textX = colX + cellPaddingX;
     let align = 'left';
@@ -728,7 +738,7 @@ function drawEstimatePage(pg){
   rowY = tableTop + headerHeight;
   rowsInfo.forEach((info)=>{
     columnDefs.forEach((col, idx)=>{
-      const colX = tableX + columnOffsets[idx];
+      const colX = tableX_inset + columnOffsets[idx];
       const colWidth = columnWidths[idx];
       let textX = colX + cellPaddingX;
       let align = 'left';
@@ -748,21 +758,21 @@ function drawEstimatePage(pg){
   // 枠線
   ctx.strokeStyle = '#d1d5db';
   ctx.lineWidth = Math.max(1 * invScale, 0.5 * invScale);
-  ctx.strokeRect(tableX, tableTop, tableWidth, tableHeight);
+  ctx.strokeRect(tableX_inset+px*0.5, tableTop+px*0.5, Math.max(0, tableWidth_inset), tableHeight);
   let vX = tableX;
   columnDefs.forEach((col, idx)=>{
     if (idx === 0) return;
-    vX = tableX + columnOffsets[idx];
+    vX = tableX_inset + columnOffsets[idx];
     ctx.beginPath();
-    ctx.moveTo(vX, tableTop);
-    ctx.lineTo(vX, tableBottom);
+    ctx.moveTo(vX+px*0.5, tableTop+px*0.5);
+    ctx.lineTo(vX+px*0.5, tableBottom+px*0.5);
     ctx.stroke();
   });
   let hY = tableTop + headerHeight;
   rowsInfo.forEach((info)=>{
     ctx.beginPath();
-    ctx.moveTo(tableX, hY);
-    ctx.lineTo(tableX + tableWidth, hY);
+    ctx.moveTo(tableX_inset+px*0.5, hY+px*0.5);
+    ctx.lineTo(tableX_inset + tableWidth_inset + px*0.5, hY+px*0.5);
     ctx.stroke();
     hY += info.height;
   });
@@ -770,7 +780,7 @@ function drawEstimatePage(pg){
   // サマリー
   const summaryWidth = Math.min(tableWidth, Math.max(320 * invScale, tableWidth * 0.38));
   const summaryHeight = 108 * invScale;
-  const summaryX = tableX + tableWidth - summaryWidth;
+  const summaryX = tableX_inset + tableWidth_inset - summaryWidth;
   const bottomLimit = logicalHeight - marginBottom;
   let summaryGap = 28 * invScale;
   let footnoteSpacing = 20 * invScale;
