@@ -14,8 +14,7 @@
   #sidebar {
     width:340px; max-width:42vw; min-width:270px;
     background:var(--panel); border-right:1px solid var(--line);
-    display:flex; flex-direction:column; gap:14px; padding:14px; box-sizing:border-box;
-    overflow-y:auto;
+    display:flex; flex-direction:column; gap:14px; padding:14px; box-sizing:border-box; overflow-y:auto;
   }
   #sidebar h2 { font-size:14px; margin:0 0 6px; color:#374151; }
   .section { padding:10px; border:1px solid var(--line); border-radius:12px; background:#fff; }
@@ -23,17 +22,15 @@
   .full { width:100%; }
   .muted { color:#6b7280; font-size:12px; margin-top:6px; }
   button, label.as-btn, select, input[type=text], input[type=number], textarea {
-    font-size:14px; border:1px solid var(--line); border-radius:10px; background:#fff; color:#111827;
-    padding:8px 10px; box-sizing:border-box;
+    font-size:14px; border:1px solid var(--line); border-radius:10px; background:#fff; color:#111827; padding:8px 10px; box-sizing:border-box;
   }
   button, label.as-btn, select { cursor:pointer; }
   input[type=text], input[type=number], textarea { cursor:text; }
   button:hover, label.as-btn:hover { background:var(--hover); }
   button.active { outline:2px solid var(--accent); outline-offset:-2px; }
   input[type=file] { display:none; }
-  input[type=text] { width:100%; }
-  input[type=number] { width:100%; }
-  textarea { width:100%; resize:vertical; min-height:70px; }
+  input[type=text], input[type=number], textarea { width:100%; }
+  textarea { resize:vertical; min-height:70px; }
   label.as-btn { display:block; width:100%; text-align:center; }
 
   /* 色スウォッチ */
@@ -45,59 +42,38 @@
   #estimateEditor h2 { display:flex; justify-content:space-between; align-items:center; }
   #estimateRows { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
   .estimate-row {
-    display:grid;
-    gap:10px;
-    grid-template-columns:repeat(2, minmax(0, 1fr));
-    align-items:flex-start;
-    padding:12px;
-    border:1px solid var(--line);
-    border-radius:12px;
-    background:#f9fafb;
+    display:grid; gap:10px; grid-template-columns:repeat(2, minmax(0, 1fr));
+    align-items:flex-start; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f9fafb;
   }
   .estimate-row select, .estimate-row input { padding:6px 8px; }
   .estimate-row select, .estimate-row input, .estimate-row textarea { width:100%; }
-  .estimate-row .estimate-tooth {
-    display:grid;
-    grid-template-columns:repeat(3, minmax(0,1fr));
-    gap:6px;
-    grid-column:1 / -1;
-  }
-  .estimate-row .estimate-tooth select { min-width:0; }
-  .estimate-row .estimate-category,
-  .estimate-row .estimate-treatment,
-  .estimate-row .estimate-quantity,
-  .estimate-row .estimate-price {
-    min-width:0;
-  }
-  .estimate-row .estimate-note {
-    grid-column:1 / -1;
-    min-width:0;
-    min-height:52px;
-  }
-  .estimate-row .estimate-remove {
-    grid-column:2;
-    justify-self:end;
-    align-self:center;
-  }
+  .estimate-row .estimate-tooth { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:6px; grid-column:1 / -1; }
+  .estimate-row .estimate-note { grid-column:1 / -1; min-height:52px; }
   @media (max-width: 600px) {
-    .estimate-row {
-      grid-template-columns:1fr;
-    }
-    .estimate-row .estimate-remove {
-      grid-column:auto;
-    }
+    .estimate-row { grid-template-columns:1fr; }
   }
   .mini-btn { padding:6px 10px; font-size:12px; border-radius:8px; }
   .estimate-summary { margin-top:14px; padding-top:10px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
-  .estimate-summary strong { font-size:16px; }
   .estimate-loan { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .estimate-loan select { width:auto; min-width:110px; }
 
-  /* 右側キャンバス */
+  /* 右側：キャンバスパネル */
   #main { flex:1; display:flex; flex-direction:column; min-width:0; position:relative; overflow:hidden; }
-  #canvasPane { flex:1; position:relative; margin:12px; border:1px solid var(--line); border-radius:12px; background:#fff; }
-  canvas { position:absolute; inset:0; width:100%; height:100%; display:block; background:#fff; touch-action:none; }
-  #hint { position:absolute; right:10px; bottom:10px; background:#0007; color:#fff; font-size:12px; padding:6px 8px; border-radius:8px; }
+  #canvasPane {
+    flex:1; position:relative; margin:12px; border:1px solid var(--line); border-radius:12px; background:#fff;
+  }
+
+  /* 3レイヤーCanvas */
+  .layer {
+    position:absolute; inset:0; width:100%; height:100%; display:block; background:#fff; touch-action:none;
+  }
+  #scene { z-index: 1; }
+  #ink   { z-index: 2; background:transparent; }
+  #ui    { z-index: 3; background:transparent; }
+
+  #hint {
+    position:absolute; right:10px; bottom:10px; background:#0007; color:#fff; font-size:12px; padding:6px 8px; border-radius:8px; z-index:4;
+  }
 
   @media (max-width: 900px) {
     body { overflow:auto; }
@@ -109,10 +85,8 @@
 </head>
 <body>
 <div id="wrap">
-
   <!-- 左サイドバー -->
   <aside id="sidebar">
-
     <!-- ページ -->
     <div class="section">
       <h2>ページ</h2>
@@ -142,6 +116,7 @@
       <div class="muted">左上に小さく表示（保存にも反映）</div>
     </div>
 
+    <!-- 見積書 -->
     <div class="section" id="estimateEditor">
       <h2>見積書</h2>
       <div class="muted">見積書ページを選択すると編集できます</div>
@@ -152,13 +127,8 @@
         <div class="estimate-loan">
           <label for="loanMonthsSelect">デンタルローン回数</label>
           <select id="loanMonthsSelect">
-            <option value="6">6 回</option>
-            <option value="12">12 回</option>
-            <option value="18">18 回</option>
-            <option value="24">24 回</option>
-            <option value="36">36 回</option>
-            <option value="48">48 回</option>
-            <option value="60">60 回</option>
+            <option value="6">6 回</option><option value="12">12 回</option><option value="18">18 回</option>
+            <option value="24">24 回</option><option value="36">36 回</option><option value="48">48 回</option><option value="60">60 回</option>
           </select>
           <div>月々約 <span id="estimateMonthlyDisplay">¥0</span></div>
         </div>
@@ -169,9 +139,7 @@
     <!-- 保存・共有 -->
     <div class="section">
       <h2>患者データ保存 / 共有</h2>
-      <div class="row">
-        <button id="exportPatientBtn" class="full">患者データを書き出し</button>
-      </div>
+      <div class="row"><button id="exportPatientBtn" class="full">患者データを書き出し</button></div>
       <label class="as-btn" style="margin-top:6px"><input id="importPatientInput" type="file" accept="application/json">患者データを読み込む</label>
       <div class="muted">※ 保存したJSONをAirDropなどで共有すると他のiPadでも続きを開けます</div>
     </div>
@@ -185,10 +153,10 @@
         <button id="selectBtn" class="full" title="スタンプの移動・回転・サイズ変更">選択</button>
       </div>
       <div class="row" style="margin-top:8px; align-items:center">
-        <div id="colorBlack" class="swatch active" title="黒"  style="background:#111"></div>
-        <div id="colorRed"   class="swatch"        title="赤"  style="background:#e11d48"></div>
-        <div id="colorBlue"  class="swatch"        title="青"  style="background:#2563eb"></div>
-        <div id="colorYel"   class="swatch"        title="黄"  style="background:#f59e0b"></div>
+        <div id="colorBlack" class="swatch active" title="黒" style="background:#111"></div>
+        <div id="colorRed"   class="swatch" title="赤" style="background:#e11d48"></div>
+        <div id="colorBlue"  class="swatch" title="青" style="background:#2563eb"></div>
+        <div id="colorYel"   class="swatch" title="黄" style="background:#f59e0b"></div>
         <span class="muted" style="margin-left:6px">※色はペンのみ</span>
       </div>
       <div class="row" style="margin-top:8px">
@@ -204,7 +172,7 @@
       <button id="qrBtn" class="full" title="URL/テキストを入力してQR配置">自由入力のQRを追加</button>
       <div class="row" style="margin-top:8px">
         <button id="implantBtn" class="full" title="インプラントスタンプ">インプラント</button>
-        <button id="crownBtn" class="full" title="被せ物（クラウン）スタンプ">被せ物</button>
+        <button id="crownBtn"   class="full" title="被せ物（クラウン）スタンプ">被せ物</button>
       </div>
       <button id="clearAllBtn" class="full" style="margin-top:8px" title="現在ページを全消去">現在ページ 全消去</button>
     </div>
@@ -212,21 +180,11 @@
     <!-- 説明QRプリセット -->
     <div class="section">
       <h2>説明QR（プリセット）</h2>
-      <div class="row">
-        <select id="qrPresetSelect" class="full"></select>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <button id="placePresetBtn" class="full">この説明をQRで配置</button>
-      </div>
-      <div class="row" style="margin-top:10px">
-        <input id="presetLabel" class="full" type="text" placeholder="追加ラベル（例：インプラント説明）">
-      </div>
-      <div class="row" style="margin-top:6px">
-        <input id="presetData" class="full" type="text" placeholder="URL または テキスト">
-      </div>
-      <div class="row" style="margin-top:6px">
-        <button id="addPresetBtn" class="full">候補を追加</button>
-      </div>
+      <div class="row"><select id="qrPresetSelect" class="full"></select></div>
+      <div class="row" style="margin-top:6px"><button id="placePresetBtn" class="full">この説明をQRで配置</button></div>
+      <div class="row" style="margin-top:10px"><input id="presetLabel" class="full" type="text" placeholder="追加ラベル（例：インプラント説明）"></div>
+      <div class="row" style="margin-top:6px"><input id="presetData" class="full" type="text" placeholder="URL または テキスト"></div>
+      <div class="row" style="margin-top:6px"><button id="addPresetBtn" class="full">候補を追加</button></div>
       <div class="muted">※ 候補はブラウザに保存され、次回も表示されます</div>
     </div>
 
@@ -238,310 +196,325 @@
         <button id="saveBtn" class="full">PDF保存（全ページ）</button>
       </div>
     </div>
-
   </aside>
 
   <!-- 右側キャンバス -->
   <main id="main">
     <div id="canvasPane">
-      <canvas id="c"></canvas>
+      <canvas id="scene" class="layer"></canvas>
+      <canvas id="ink"   class="layer"></canvas>
+      <canvas id="ui"    class="layer"></canvas>
       <div id="hint">1本指:描く/選択　2本指:パン（ズーム固定）　上の丸=回転　右下=拡大縮小・伸縮</div>
     </div>
   </main>
-
 </div>
 
+<!-- jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
 <script>
-/* =========================
-   基本セットアップ
-========================= */
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d', { alpha:true, desynchronized:true });
-const pane = document.getElementById('canvasPane');
+/* ========================= 基本セットアップ ========================= */
+const scene = document.getElementById('scene');
+const ink   = document.getElementById('ink');
+const ui    = document.getElementById('ui');
+const pane  = document.getElementById('canvasPane');
+
+const sctx = scene.getContext('2d', { alpha:true, desynchronized:true });
+const ictx = ink.getContext('2d',   { alpha:true, desynchronized:true });
+const uctx = ui.getContext('2d',    { alpha:true, desynchronized:true });
+
 const estimateEditorEl = document.getElementById('estimateEditor');
-const estimateRowsEl = document.getElementById('estimateRows');
-const estimateTotalDisplayEl = document.getElementById('estimateTotalDisplay');
+const estimateRowsEl   = document.getElementById('estimateRows');
+const estimateTotalDisplayEl   = document.getElementById('estimateTotalDisplay');
 const estimateMonthlyDisplayEl = document.getElementById('estimateMonthlyDisplay');
 const loanMonthsSelectEl = document.getElementById('loanMonthsSelect');
-const addEstimateRowBtn = document.getElementById('addEstimateRowBtn');
-const newPageTemplateEl = document.getElementById('newPageTemplate');
+const addEstimateRowBtn  = document.getElementById('addEstimateRowBtn');
+const newPageTemplateEl  = document.getElementById('newPageTemplate');
 
 let tool = 'pen'; // 'pen' | 'hl' | 'select'
 let lineWidthPen = 3;
 let lineWidthHL  = 16;
-let penColor = '#111'; // 初期は黒
-
-const ESTIMATE_INTEREST_RATE = 0.039; // 年利3.9%
+let penColor = '#111';
+const ESTIMATE_INTEREST_RATE = 0.039;
 const currencyFormatter = new Intl.NumberFormat('ja-JP');
+
 const TOOTH_SIDE_OPTIONS = ['', '右', '左'];
 const TOOTH_VERTICAL_OPTIONS = ['', '上', '下'];
 const TOOTH_NUMBER_OPTIONS = Array.from({length:8}, (_,i)=>String(i+1));
-const QUANTITY_OPTIONS = Array.from({length:99}, (_,i)=>i+1);
+const QUANTITY_OPTIONS     = Array.from({length:99}, (_,i)=>i+1);
+
 const TREATMENT_GROUPS = [
-  {
-    id:'inlay', label:'インレー',
-    items:[
-      { id:'ceramic_inlay', label:'セラミックインレー', price:65000 },
-      { id:'zirconia_inlay', label:'ジルコニアインレー', price:70000 },
-      { id:'gold_inlay', label:'ゴールドインレー', price:100000 }
-    ]
-  },
-  {
-    id:'crown', label:'クラウン',
-    items:[
-      { id:'all_ceramic_crown', label:'オールセラミッククラウン', price:130000 },
-      { id:'zirconia_ceramic_crown', label:'ジルコニアセラミッククラウン', price:150000 },
-      { id:'full_zirconia_crown', label:'フルジルコニアクラウン', price:100000 },
-      { id:'metal_bond_crown', label:'メタルボンドクラウン', price:120000 },
-      { id:'gold_crown', label:'ゴールドクラウン', price:180000 }
-    ]
-  },
-  {
-    id:'denture', label:'入れ歯',
-    items:[
-      { id:'metal_base_denture', label:'金属床義歯', price:300000 },
-      { id:'non_clasp_crown', label:'ノンクラスプクラウン', price:100000 }
-    ]
-  },
-  {
-    id:'implant', label:'インプラント',
-    items:[
-      { id:'fixture', label:'フィクスチャー＋オペ料（検査費用含む）', price:275000 },
-      { id:'surgical_guide', label:'サージカルガイド', price:40000 },
-      { id:'provisional_restoration', label:'プロビジョナルレストレーション', price:100000 },
-      { id:'abutment_normal', label:'アバットメント（通常）', price:77000 },
-      { id:'abutment_on1', label:'アバットメント（On1）', price:88000 },
-      { id:'superstructure_zirconia', label:'上部構造（ジルコニアクラウン）', price:140000 },
-      { id:'gbr', label:'GBR（骨造成）', price:80000 },
-      { id:'socket_lift', label:'ソケットリフト', price:100000 },
-      { id:'sinus_lift', label:'サイナスリフト', price:150000 },
-      { id:'locator_abutment', label:'ロケーターアバットメント', price:100000 },
-      { id:'implant_overdenture', label:'インプラント オーバーデンチャー', price:400000 }
-    ]
-  },
-  {
-    id:'hygienist', label:'衛生士メニュー',
-    items:[
-      { id:'pmtc', label:'PMTC', price:13200 },
-      { id:'home_whitening', label:'ホームホワイトニング', price:33000 }
-    ]
-  }
+  { id:'inlay', label:'インレー', items:[
+    { id:'ceramic_inlay', label:'セラミックインレー', price:65000 },
+    { id:'zirconia_inlay', label:'ジルコニアインレー', price:70000 },
+    { id:'gold_inlay', label:'ゴールドインレー', price:100000 }
+  ]},
+  { id:'crown', label:'クラウン', items:[
+    { id:'all_ceramic_crown', label:'オールセラミッククラウン', price:130000 },
+    { id:'zirconia_ceramic_crown', label:'ジルコニアセラミッククラウン', price:150000 },
+    { id:'full_zirconia_crown', label:'フルジルコニアクラウン', price:100000 },
+    { id:'metal_bond_crown', label:'メタルボンドクラウン', price:120000 },
+    { id:'gold_crown', label:'ゴールドクラウン', price:180000 }
+  ]},
+  { id:'denture', label:'入れ歯', items:[
+    { id:'metal_base_denture', label:'金属床義歯', price:300000 },
+    { id:'non_clasp_crown',    label:'ノンクラスプクラウン', price:100000 }
+  ]},
+  { id:'implant', label:'インプラント', items:[
+    { id:'fixture',               label:'フィクスチャー＋オペ料（検査費用含む）', price:275000 },
+    { id:'surgical_guide',        label:'サージカルガイド', price:40000 },
+    { id:'provisional_restoration', label:'プロビジョナルレストレーション', price:100000 },
+    { id:'abutment_normal',       label:'アバットメント（通常）', price:77000 },
+    { id:'abutment_on1',          label:'アバットメント（On1）', price:88000 },
+    { id:'superstructure_zirconia', label:'上部構造（ジルコニアクラウン）', price:140000 },
+    { id:'gbr',                   label:'GBR（骨造成）', price:80000 },
+    { id:'socket_lift',           label:'ソケットリフト', price:100000 },
+    { id:'sinus_lift',            label:'サイナスリフト', price:150000 },
+    { id:'locator_abutment',      label:'ロケーターアバットメント', price:100000 },
+    { id:'implant_overdenture',   label:'インプラント オーバーデンチャー', price:400000 }
+  ]},
+  { id:'hygienist', label:'衛生士メニュー', items:[
+    { id:'pmtc',            label:'PMTC', price:13200 },
+    { id:'home_whitening',  label:'ホームホワイトニング', price:33000 }
+  ]}
 ];
 
-function makeEstimateRow(){
-  return { tooth:'', category:'', treatment:'', unitPrice:0, price:0, quantity:1, note:'' };
-}
-
-function makeEstimateData(){
-  return { rows:[makeEstimateRow()], loanMonths:12, interestRate:ESTIMATE_INTEREST_RATE };
-}
+function makeEstimateRow(){ return { tooth:'', category:'', treatment:'', unitPrice:0, price:0, quantity:1, note:'' }; }
+function makeEstimateData(){ return { rows:[makeEstimateRow()], loanMonths:12, interestRate:ESTIMATE_INTEREST_RATE }; }
 
 /* 罫線 */
 let showLines = false;
 const LINE_STEP = 30;
 
-/* ページ：各ページごとにデータを持つ */
+/* ページモデル */
 let pages = [makeEmptyPage('blank')];
 let pageIndex = 0;
 function currentPage(){ return pages[pageIndex]; }
 function makeEmptyPage(kind='blank'){
-  return {
-    kind,
-    strokes: [], // {mode,width,color?,points}
-    items: [],   // {type,img,x,y,w,h,angle}
-    bg: null,    // {img,x,y,w,h,angle}
-    estimate: kind==='estimate' ? makeEstimateData() : null
-  };
+  return { kind, strokes: [], /* {mode,width,color?,points:[{x,y}...]} */
+           items: [],         /* {type,img,x,y,w,h,angle, qrData?} */
+           bg: null,          /* {img,x,y,w,h,angle} */
+           estimate: kind==='estimate' ? makeEstimateData() : null };
 }
 
-/* ビュー（パン／ズーム固定）は全ページ共通 */
+/* ビュー（ズーム固定：1） */
 const view = { scale:1, tx:0, ty:0 };
 const CANVAS_SCALE_LOCKED = true;
-const MIN_SCALE = CANVAS_SCALE_LOCKED ? 1 : 0.3;
-const MAX_SCALE = CANVAS_SCALE_LOCKED ? 1 : 6;
 
-const HANDLE_SIZE = 16;
-const ROT_HANDLE_OFFSET = 28;
-
-let redrawPending = false;
-
-/* =========================
-   DPRとサイズ
-========================= */
+/* サイズ設定（全レイヤ共通） */
 function setCanvasSize(){
   const dpr = window.devicePixelRatio || 1;
-  const r = canvas.getBoundingClientRect();
-  const w = Math.floor(r.width*dpr), h = Math.floor(r.height*dpr);
-  if (canvas.width!==w || canvas.height!==h){ canvas.width=w; canvas.height=h; }
-  redraw();
+  const r = scene.getBoundingClientRect();
+  const W = Math.max(1, Math.floor(r.width  * dpr));
+  const H = Math.max(1, Math.floor(r.height * dpr));
+  [scene, ink, ui].forEach(cv=>{
+    if (cv.width !== W || cv.height !== H){
+      cv.width = W; cv.height = H;
+    }
+  });
+  // スケール（座標はCSSピクセル）
+  sctx.setTransform(dpr,0,0,dpr,0,0);
+  ictx.setTransform(dpr,0,0,dpr,0,0);
+  uctx.setTransform(dpr,0,0,dpr,0,0);
+
+  // 再描画
+  renderScene();
+  redrawInkFromHistory(currentPage());
+  renderUI();
 }
 new ResizeObserver(setCanvasSize).observe(pane);
 
-/* =========================
-   変換
-========================= */
-function clampViewForPage(){
+/* ========= 共通描画ユーティリティ ========= */
+function clearCtx(ctx){
+  const r = scene.getBoundingClientRect();
+  ctx.setTransform(window.devicePixelRatio||1,0,0,window.devicePixelRatio||1,0,0);
+  ctx.clearRect(0,0,r.width, r.height);
+}
+function centerOfCanvas(){
+  const r = scene.getBoundingClientRect();
+  return {x:r.width/2, y:r.height/2};
+}
+
+/* ========= Scene（背景・項目・見積・罫線・患者情報） ========= */
+function renderScene(){
+  clearCtx(sctx);
   const pg = currentPage();
-  if (!pg) return false;
-  if (pg.kind === 'blank'){
-    const rect = canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height){
-      const changed = view.tx !== 0 || view.ty !== 0;
-      view.tx = 0;
-      view.ty = 0;
-      return changed;
+  const r = scene.getBoundingClientRect();
+
+  // 罫線
+  if (showLines && pg.kind==='blank'){
+    sctx.save();
+    sctx.strokeStyle = '#e5e7eb'; sctx.lineWidth = 1;
+    const startY = 0;
+    sctx.beginPath();
+    for (let y = startY; y < r.height; y += LINE_STEP){
+      sctx.moveTo(0, y); sctx.lineTo(r.width, y);
     }
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const desiredTx = centerX - centerX * view.scale;
-    const desiredTy = centerY - centerY * view.scale;
-    const changed = view.tx !== desiredTx || view.ty !== desiredTy;
-    view.tx = desiredTx;
-    view.ty = desiredTy;
-    return changed;
+    sctx.stroke();
+    sctx.restore();
   }
-  return false;
+
+  // 背景
+  if (pg.bg) drawPlacedImage(sctx, pg.bg);
+
+  // 見積ページ
+  if (pg.kind==='estimate'){
+    drawEstimatePage(sctx, pg);
+  }
+
+  // アイテム
+  for (const it of pg.items) drawPlacedImage(sctx, it);
+
+  // 患者情報
+  drawPatientInfo(sctx);
 }
 
-function applyView(){
-  const dpr = window.devicePixelRatio || 1;
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.transform(view.scale,0,0,view.scale,view.tx,view.ty);
-}
-function screenToLogical(pt){ return { x:(pt.x - view.tx)/view.scale, y:(pt.y - view.ty)/view.scale }; }
+/* ========= UI（選択ハンドル等） ========= */
+let selectedIdx = -1;
+let bgSelected  = false;
 
-/* =========================
-   レンダリング
-========================= */
-function clearDevice(){ ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height); }
-
-function redraw(){
-  clampViewForPage();
-  clearDevice();
-  applyView();
-
+function renderUI(){
+  clearCtx(uctx);
   const pg = currentPage();
-
-  if (pg.kind === 'estimate'){
-    if (pg.bg) drawPlacedImage(pg.bg);
-    drawEstimatePage(pg);
-  } else {
-    if (showLines) drawHorizontalLines(LINE_STEP);
-    if (pg.bg) drawPlacedImage(pg.bg);
-  }
-  for (let i=0;i<pg.items.length;i++) drawPlacedImage(pg.items[i]);
-  for (const s of pg.strokes) drawStroke(s);
-  for (const entries of activeStrokes.values()){
-    for (const entry of entries) drawStroke(entry.stroke);
-  }
-  if (pg.bg && bgSelected) drawSelectionHandles(pg.bg);
-  if (selectedIdx>=0 && pg.items[selectedIdx]) drawSelectionHandles(pg.items[selectedIdx]);
-
-  drawPatientInfo();
-  updatePageIndicator();
+  if (pg.bg && bgSelected) drawSelectionHandles(uctx, pg.bg);
+  if (selectedIdx>=0 && pg.items[selectedIdx]) drawSelectionHandles(uctx, pg.items[selectedIdx]);
 }
 
-function requestRedraw(){
-  if (redrawPending) return;
-  redrawPending = true;
-  requestAnimationFrame(()=>{
-    redrawPending = false;
-    redraw();
-  });
+/* ========= Ink（ストローク） ========= */
+function drawStrokeOnInk(stroke){
+  if (!stroke.points || stroke.points.length<2) return;
+  ictx.save();
+  ictx.lineCap='round'; ictx.lineJoin='round';
+  if (stroke.mode==='pen'){
+    ictx.globalAlpha=1;
+    ictx.strokeStyle=stroke.color||'#111';
+    ictx.lineWidth=stroke.width||lineWidthPen;
+  }else{
+    ictx.globalAlpha=0.28;
+    ictx.strokeStyle='#ffd600';
+    ictx.lineWidth=stroke.width||lineWidthHL;
+  }
+  ictx.beginPath();
+  const pts = stroke.points;
+  ictx.moveTo(pts[0].x, pts[0].y);
+  for (let i=1;i<pts.length;i++) ictx.lineTo(pts[i].x, pts[i].y);
+  ictx.stroke();
+  ictx.restore();
+}
+function redrawInkFromHistory(pg){
+  clearCtx(ictx);
+  if (!pg) return;
+  for (const s of pg.strokes) drawStrokeOnInk(s);
 }
 
-function drawHorizontalLines(step){
+/* ========= 画像・見積・患者表示など ========= */
+function getItemCenter(it){ return { cx: it.x + it.w/2, cy: it.y + it.h/2 }; }
+function drawPlacedImage(ctx, it){
+  const {cx, cy} = getItemCenter(it);
   ctx.save();
-  ctx.strokeStyle = '#e5e7eb';
-  ctx.lineWidth = 1 / view.scale;
-  const w = canvas.width / view.scale, h = canvas.height / view.scale;
-  const startX = -view.tx / view.scale, startY = -view.ty / view.scale;
-  const endX = startX + w, endY = startY + h;
-  ctx.beginPath();
-  const y0 = Math.floor(startY / step) * step;
-  for (let y = y0; y < endY; y += step) { ctx.moveTo(startX, y); ctx.lineTo(endX, y); }
-  ctx.stroke();
+  ctx.translate(cx, cy);
+  ctx.rotate(it.angle || 0);
+  ctx.drawImage(it.img, -it.w/2, -it.h/2, it.w, it.h);
+  ctx.restore();
+}
+const HANDLE_SIZE = 16, ROT_HANDLE_OFFSET = 28;
+function drawSelectionHandles(ctx, it){
+  const {cx, cy} = getItemCenter(it);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(it.angle || 0);
+  ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1;
+  ctx.setLineDash([4,3]);
+  ctx.strokeRect(-it.w/2, -it.h/2, it.w, it.h);
+  ctx.setLineDash([]);
+  const r = HANDLE_SIZE/2;
+  ctx.fillStyle = '#2563eb';
+  ctx.fillRect(it.w/2 - r, it.h/2 - r, HANDLE_SIZE, HANDLE_SIZE); // リサイズ
+  const rotY = -it.h/2 - ROT_HANDLE_OFFSET;
+  ctx.beginPath(); ctx.moveTo(0, -it.h/2); ctx.lineTo(0, rotY); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, rotY, HANDLE_SIZE*0.6, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function drawPatientInfo(ctx){
+  const name = document.getElementById('ptName').value.trim();
+  const id   = document.getElementById('ptId').value.trim();
+  if (!name && !id) return;
+  ctx.save();
+  ctx.fillStyle = '#374151';
+  ctx.font = '12px system-ui, sans-serif';
+  ctx.textBaseline='top';
+  ctx.fillText(`${name}${name && id ? ' ' : ''}${id}`, 10, 10);
   ctx.restore();
 }
 
-function drawEstimatePage(pg){
+/* ========= 見積書レンダリング ========= */
+function drawEstimatePage(ctx, pg){
   if (!pg.estimate) pg.estimate = makeEstimateData();
   const est = pg.estimate;
   if (!Array.isArray(est.rows)) est.rows = [makeEstimateRow()];
-  if (est.rows.length === 0) est.rows.push(makeEstimateRow());
-  for (let i=0;i<est.rows.length;i++) est.rows[i] = normalizeEstimateRow(est.rows[i]);
-  const months = parseInt(est.loanMonths, 10);
-  est.loanMonths = Math.min(60, Math.max(1, Number.isFinite(months) ? months : 12));
-  est.interestRate = Number.isFinite(est.interestRate) ? est.interestRate : ESTIMATE_INTEREST_RATE;
+  if (est.rows.length===0) est.rows.push(makeEstimateRow());
+  for (let i=0;i<est.rows.length;i++) est.rows[i]=normalizeEstimateRow(est.rows[i]);
+  const months = parseInt(est.loanMonths,10);
+  est.loanMonths = Math.min(60,Math.max(1, Number.isFinite(months)?months:12));
+  est.interestRate = Number.isFinite(est.interestRate)?est.interestRate:ESTIMATE_INTEREST_RATE;
 
-  const rect = canvas.getBoundingClientRect();
+  const rect = scene.getBoundingClientRect();
   const marginX = rect.width < 640 ? 24 : 40;
   const marginY = 70;
-  const availableWidth = Math.max(320, rect.width - marginX * 2);
+  const availableWidth = Math.max(320, rect.width - marginX*2);
   const columnRatios = [0.15, 0.33, 0.12, 0.17, 0.23];
-  const columnWidths = columnRatios.map(r => availableWidth * r);
+  const columnWidths = columnRatios.map(r=>availableWidth*r);
   const headerHeight = 46;
   const rowHeight = 40;
   const rowCount = Math.max(est.rows.length, 8);
-  const tableHeight = headerHeight + rowHeight * rowCount;
+  const tableHeight = headerHeight + rowHeight*rowCount;
   const tableTop = marginY;
   const tableLeft = marginX;
 
   const columnStarts = [];
   let runningX = tableLeft;
-  for (let i=0;i<columnWidths.length;i++){
-    columnStarts.push(runningX);
-    runningX += columnWidths[i];
-  }
+  for (let i=0;i<columnWidths.length;i++){ columnStarts.push(runningX); runningX += columnWidths[i]; }
 
   ctx.save();
-  ctx.fillStyle = '#111';
-  ctx.font = `${28 / view.scale}px system-ui, sans-serif`;
-  ctx.textBaseline = 'top';
+  ctx.fillStyle='#111'; ctx.font='28px system-ui, sans-serif'; ctx.textBaseline='top';
   ctx.fillText('見積書', tableLeft, marginY - 40);
 
-  ctx.fillStyle = '#f3f4f6';
+  ctx.fillStyle='#f3f4f6';
   ctx.fillRect(tableLeft, tableTop, availableWidth, headerHeight);
-  ctx.strokeStyle = '#9ca3af';
-  ctx.lineWidth = 1 / view.scale;
+  ctx.strokeStyle='#9ca3af'; ctx.lineWidth=1;
   ctx.strokeRect(tableLeft, tableTop, availableWidth, tableHeight);
 
   // 縦線
   ctx.beginPath();
   for (let i=1;i<columnWidths.length;i++){
-    const x = tableLeft + columnWidths.slice(0, i).reduce((sum,val)=>sum+val,0);
-    ctx.moveTo(x, tableTop);
-    ctx.lineTo(x, tableTop + tableHeight);
+    const x = tableLeft + columnWidths.slice(0,i).reduce((s,v)=>s+v,0);
+    ctx.moveTo(x, tableTop); ctx.lineTo(x, tableTop + tableHeight);
   }
   ctx.stroke();
 
   // 横線
   ctx.beginPath();
   for (let i=1;i<=rowCount;i++){
-    const y = tableTop + headerHeight + rowHeight * (i-1);
-    ctx.moveTo(tableLeft, y);
-    ctx.lineTo(tableLeft + availableWidth, y);
+    const y = tableTop + headerHeight + rowHeight*(i-1);
+    ctx.moveTo(tableLeft, y); ctx.lineTo(tableLeft + availableWidth, y);
   }
   ctx.stroke();
 
-  const headers = ['部位','治療内容','個数','値段（税込）','備考'];
-  ctx.fillStyle = '#111';
-  ctx.font = `${14 / view.scale}px system-ui, sans-serif`;
+  const headers=['部位','治療内容','個数','値段（税込）','備考'];
+  ctx.fillStyle='#111'; ctx.font='14px system-ui, sans-serif';
   for (let i=0;i<headers.length;i++){
     ctx.fillText(headers[i], columnStarts[i] + 10, tableTop + 12);
   }
 
-  ctx.font = `${13 / view.scale}px system-ui, sans-serif`;
-  const displayRows = est.rows;
-  for (let i=0;i<displayRows.length;i++){
-    const row = displayRows[i];
-    const { group, item } = findTreatment(row.category, row.treatment);
-    const top = tableTop + headerHeight + rowHeight * i + 10;
+  ctx.font='13px system-ui, sans-serif';
+  for (let i=0;i<est.rows.length;i++){
+    const row = est.rows[i];
+    const { item } = findTreatment(row.category, row.treatment);
+    const top = tableTop + headerHeight + rowHeight*i + 10;
     if (row.tooth) ctx.fillText(row.tooth, columnStarts[0] + 10, top);
     const treatmentLabel = item ? item.label : (row.treatment || '');
     if (treatmentLabel) ctx.fillText(treatmentLabel, columnStarts[1] + 10, top);
-    if (row.quantity) ctx.fillText(String(row.quantity), columnStarts[2] + 10, top);
+    if (row.quantity)    ctx.fillText(String(row.quantity), columnStarts[2] + 10, top);
     const total = getRowTotal(row);
     if (total) ctx.fillText(formatCurrency(total), columnStarts[3] + 10, top);
     if (row.note) ctx.fillText(row.note, columnStarts[4] + 10, top);
@@ -549,1253 +522,456 @@ function drawEstimatePage(pg){
 
   const totalAmount = calculateEstimateTotal(est);
   const summaryTop = tableTop + tableHeight + 30;
-  ctx.font = `${18 / view.scale}px system-ui, sans-serif`;
+  ctx.font='18px system-ui, sans-serif';
   ctx.fillText(`合計（税込）：${formatCurrency(totalAmount)}`, tableLeft, summaryTop);
 
   const monthly = calculateMonthlyPayment(totalAmount, est.loanMonths, est.interestRate || ESTIMATE_INTEREST_RATE);
-  ctx.font = `${14 / view.scale}px system-ui, sans-serif`;
+  ctx.font='14px system-ui, sans-serif';
   ctx.fillText(`デンタルローン：${est.loanMonths}回払い / 月々約 ${formatCurrency(monthly)}`, tableLeft, summaryTop + 28);
 
-  const interestText = ((est.interestRate || ESTIMATE_INTEREST_RATE) * 100).toFixed(1).replace(/\.0$/, '');
-  ctx.font = `${12 / view.scale}px system-ui, sans-serif`;
-  ctx.fillStyle = '#6b7280';
+  const interestText = ((est.interestRate || ESTIMATE_INTEREST_RATE)*100).toFixed(1).replace(/\.0$/,'');
+  ctx.font='12px system-ui, sans-serif'; ctx.fillStyle='#6b7280';
   ctx.fillText(`※ 年利 ${interestText}% で試算`, tableLeft, summaryTop + 48);
   ctx.restore();
 }
 
-function drawStroke(s){
-  if (!s.points || s.points.length<2) return;
-  ctx.save();
-  ctx.lineCap='round'; ctx.lineJoin='round';
-  if (s.mode==='pen'){ ctx.globalAlpha=1; ctx.strokeStyle=s.color||'#111'; ctx.lineWidth=s.width||lineWidthPen; }
-  else { ctx.globalAlpha=0.28; ctx.strokeStyle='#ffd600'; ctx.lineWidth=s.width||lineWidthHL; }
-  ctx.beginPath(); ctx.moveTo(s.points[0].x,s.points[0].y);
-  for (let i=1;i<s.points.length;i++) ctx.lineTo(s.points[i].x,s.points[i].y);
-  ctx.stroke(); ctx.restore();
-}
-
-function getItemCenter(it){ return { cx: it.x + it.w/2, cy: it.y + it.h/2 }; }
-
-function drawPlacedImage(it){
-  const {cx, cy} = getItemCenter(it);
-  ctx.save();
-  ctx.translate(cx, cy); ctx.rotate(it.angle || 0);
-  ctx.drawImage(it.img, -it.w/2, -it.h/2, it.w, it.h);
-  ctx.restore();
-}
-
-function drawSelectionHandles(it){
-  const {cx, cy} = getItemCenter(it);
-  ctx.save();
-  ctx.translate(cx, cy); ctx.rotate(it.angle || 0);
-  ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1 / view.scale;
-  ctx.setLineDash([4 / view.scale, 3 / view.scale]);
-  ctx.strokeRect(-it.w/2, -it.h/2, it.w, it.h);
-  ctx.setLineDash([]);
-
-  const r = HANDLE_SIZE/2;
-  ctx.fillStyle = '#2563eb';
-  ctx.fillRect(it.w/2 - r, it.h/2 - r, HANDLE_SIZE, HANDLE_SIZE);
-
-  const rotY = -it.h/2 - ROT_HANDLE_OFFSET;
-  ctx.beginPath(); ctx.moveTo(0, -it.h/2); ctx.lineTo(0, rotY); ctx.stroke();
-  ctx.beginPath(); ctx.arc(0, rotY, HANDLE_SIZE*0.6, 0, Math.PI*2); ctx.fill();
-  ctx.restore();
-}
-
-function drawPatientInfo(){
-  const name = document.getElementById('ptName').value.trim();
-  const id   = document.getElementById('ptId').value.trim();
-  if (!name && !id) return;
-  ctx.save();
-  ctx.fillStyle = '#374151';
-  ctx.font = `${12 / view.scale}px system-ui, sans-serif`;
-  ctx.textBaseline = 'top';
-  ctx.fillText(`${name}${name && id ? ' ' : ''}${id}`, 10, 10);
-  ctx.restore();
-}
-
+/* ========= 見積関連ロジック ========= */
 function normalizeEstimateRow(row){
-  if (!row || typeof row !== 'object') return makeEstimateRow();
-  row.tooth = typeof row.tooth === 'string' ? row.tooth : '';
-  row.category = typeof row.category === 'string' ? row.category : '';
-  row.treatment = typeof row.treatment === 'string' ? row.treatment : '';
-  const qty = parseInt(row.quantity, 10);
-  row.quantity = Math.min(99, Math.max(1, Number.isFinite(qty) ? qty : 1));
+  if (!row || typeof row!=='object') return makeEstimateRow();
+  row.tooth     = typeof row.tooth==='string' ? row.tooth : '';
+  row.category  = typeof row.category==='string' ? row.category : '';
+  row.treatment = typeof row.treatment==='string' ? row.treatment : '';
+  const qty = parseInt(row.quantity,10);
+  row.quantity = Math.min(99, Math.max(1, Number.isFinite(qty)?qty:1));
   row.unitPrice = Number.isFinite(row.unitPrice) ? row.unitPrice : Number(row.unitPrice) || 0;
   const priceNum = Number(row.price);
   row.price = Number.isFinite(priceNum) ? priceNum : row.unitPrice * row.quantity;
-  row.note = typeof row.note === 'string' ? row.note : '';
+  row.note = typeof row.note==='string' ? row.note : '';
   return row;
 }
-
 function findTreatment(categoryId, treatmentId){
   const group = TREATMENT_GROUPS.find(g=>g.id===categoryId) || null;
-  const item = group ? (group.items.find(it=>it.id===treatmentId) || null) : null;
+  const item  = group ? (group.items.find(it=>it.id===treatmentId) || null) : null;
   return { group, item };
 }
-
 function getRowTotal(row){
-  const qty = Math.max(1, parseInt(row.quantity, 10) || 1);
+  const qty = Math.max(1, parseInt(row.quantity,10)||1);
   if (typeof row.price === 'number' && !Number.isNaN(row.price)) return Math.round(row.price);
   const base = Number(row.unitPrice) || 0;
   return Math.round(base * qty);
 }
-
 function calculateEstimateTotal(est){
   if (!est || !Array.isArray(est.rows)) return 0;
   return est.rows.reduce((sum,row)=> sum + getRowTotal(row), 0);
 }
-
 function calculateMonthlyPayment(amount, months, annualRate){
-  if (!months || months <= 0 || !amount) return 0;
+  if (!months || months<=0 || !amount) return 0;
   const principal = Math.max(0, amount);
-  const r = annualRate > 0 ? annualRate / 12 : 0;
-  if (r === 0) return principal / months;
-  return principal * r / (1 - Math.pow(1 + r, -months));
+  const r = annualRate > 0 ? annualRate/12 : 0;
+  if (r===0) return principal / months;
+  return principal * r / (1 - Math.pow(1+r, -months));
 }
-
 function formatCurrency(amount){
   if (!amount) return '¥0';
   const rounded = Math.round(amount);
   return `¥${currencyFormatter.format(rounded)}`;
 }
-
 function ensureEstimateDataForPage(pg){
   if (!pg) return null;
   if (!pg.estimate) pg.estimate = makeEstimateData();
   const est = pg.estimate;
   if (!Array.isArray(est.rows)) est.rows = [makeEstimateRow()];
-  if (est.rows.length === 0) est.rows.push(makeEstimateRow());
-  for (let i=0;i<est.rows.length;i++) est.rows[i] = normalizeEstimateRow(est.rows[i]);
-  const months = parseInt(est.loanMonths, 10);
-  est.loanMonths = Math.min(60, Math.max(1, Number.isFinite(months) ? months : 12));
-  est.interestRate = Number.isFinite(est.interestRate) ? est.interestRate : ESTIMATE_INTEREST_RATE;
+  if (est.rows.length===0) est.rows.push(makeEstimateRow());
+  for (let i=0;i<est.rows.length;i++) est.rows[i]=normalizeEstimateRow(est.rows[i]);
+  const months = parseInt(est.loanMonths,10);
+  est.loanMonths = Math.min(60,Math.max(1, Number.isFinite(months)?months:12));
+  est.interestRate = Number.isFinite(est.interestRate)?est.interestRate:ESTIMATE_INTEREST_RATE;
   return est;
 }
-
 function serializeEstimate(est){
-  if (!est || !Array.isArray(est.rows)) return {
-    rows:[makeEstimateRow()],
-    loanMonths:12,
-    interestRate:ESTIMATE_INTEREST_RATE
-  };
+  if (!est || !Array.isArray(est.rows)) return { rows:[makeEstimateRow()], loanMonths:12, interestRate:ESTIMATE_INTEREST_RATE };
   return {
     rows: est.rows.map(row=>{
-      const normalized = normalizeEstimateRow({...row});
-      return {
-        tooth: normalized.tooth || '',
-        category: normalized.category || '',
-        treatment: normalized.treatment || '',
-        quantity: normalized.quantity || 1,
-        unitPrice: Number(normalized.unitPrice) || 0,
-        price: Number(normalized.price) || 0,
-        note: normalized.note || ''
-      };
+      const n = normalizeEstimateRow({...row});
+      return { tooth:n.tooth||'', category:n.category||'', treatment:n.treatment||'',
+               quantity:n.quantity||1, unitPrice:Number(n.unitPrice)||0, price:Number(n.price)||0, note:n.note||'' };
     }),
-    loanMonths: Math.min(60, Math.max(1, parseInt(est.loanMonths, 10) || 12)),
-    interestRate: Number.isFinite(est.interestRate) ? est.interestRate : ESTIMATE_INTEREST_RATE
+    loanMonths: Math.min(60, Math.max(1, parseInt(est.loanMonths,10)||12)),
+    interestRate: Number.isFinite(est.interestRate)?est.interestRate:ESTIMATE_INTEREST_RATE
   };
 }
 
+/* ========= 見積エディタ DOM ========= */
 function buildQuantityOptions(selectEl, value){
-  selectEl.innerHTML = '';
+  selectEl.innerHTML='';
   QUANTITY_OPTIONS.forEach(num=>{
-    const opt = document.createElement('option');
-    opt.value = String(num);
-    opt.textContent = `${num}`;
-    selectEl.appendChild(opt);
+    const opt=document.createElement('option'); opt.value=String(num); opt.textContent=`${num}`; selectEl.appendChild(opt);
   });
-  selectEl.value = String(value);
+  selectEl.value=String(value);
 }
-
 function ensureLoanOption(months){
   if (!loanMonthsSelectEl) return;
-  const existing = Array.from(loanMonthsSelectEl.options).some(opt=>opt.value===String(months));
-  if (!existing){
-    const opt = document.createElement('option');
-    opt.value = String(months);
-    opt.textContent = `${months} 回`;
+  const exists = Array.from(loanMonthsSelectEl.options).some(o=>o.value===String(months));
+  if (!exists){
+    const opt=document.createElement('option'); opt.value=String(months); opt.textContent=`${months} 回`;
     loanMonthsSelectEl.appendChild(opt);
   }
 }
-
 function populateTreatmentOptions(selectEl, categoryId){
-  selectEl.innerHTML = '';
-  const blank = document.createElement('option');
-  blank.value = '';
-  blank.textContent = '治療内容';
-  selectEl.appendChild(blank);
-  const group = TREATMENT_GROUPS.find(g=>g.id===categoryId);
+  selectEl.innerHTML='';
+  const blank=document.createElement('option'); blank.value=''; blank.textContent='治療内容'; selectEl.appendChild(blank);
+  const group=TREATMENT_GROUPS.find(g=>g.id===categoryId);
   if (group){
     group.items.forEach(item=>{
-      const opt = document.createElement('option');
-      opt.value = item.id;
-      opt.textContent = item.label;
-      selectEl.appendChild(opt);
+      const opt=document.createElement('option'); opt.value=item.id; opt.textContent=item.label; selectEl.appendChild(opt);
     });
   }
 }
-
 function parseToothValue(value){
-  const result = { side:'', arch:'', number:'' };
-  if (typeof value !== 'string') return result;
-  const match = value.match(/(右|左)(上|下)([1-8])/);
-  if (!match) return result;
-  result.side = match[1];
-  result.arch = match[2];
-  result.number = match[3];
+  const result={side:'', arch:'', number:''};
+  if (typeof value!=='string') return result;
+  const m=value.match(/(右|左)(上|下)([1-8])/);
+  if (!m) return result;
+  result.side=m[1]; result.arch=m[2]; result.number=m[3];
   return result;
 }
-
 function combineToothValue(side, arch, number){
-  const validSide = side === '右' || side === '左' ? side : '';
-  const validArch = arch === '上' || arch === '下' ? arch : '';
+  const validSide = (side==='右'||side==='左') ? side : '';
+  const validArch = (arch==='上'||arch==='下') ? arch : '';
   const numStr = TOOTH_NUMBER_OPTIONS.includes(String(number)) ? String(number) : '';
   return (validSide && validArch && numStr) ? `${validSide}${validArch}${numStr}` : '';
 }
-
+function updateEstimateSummaryOnly(est){
+  if (!est) return;
+  const total = calculateEstimateTotal(est);
+  estimateTotalDisplayEl.textContent = `合計（税込）：${formatCurrency(total)}`;
+  const monthly = calculateMonthlyPayment(total, est.loanMonths, est.interestRate||ESTIMATE_INTEREST_RATE);
+  estimateMonthlyDisplayEl.textContent = formatCurrency(monthly);
+}
 function createEstimateRowElement(row, index, est){
-  const wrapper = document.createElement('div');
-  wrapper.className = 'estimate-row';
+  const wrapper=document.createElement('div'); wrapper.className='estimate-row';
 
-  const toothWrapper = document.createElement('div');
-  toothWrapper.className = 'estimate-tooth';
-
-  const sideSelect = document.createElement('select');
-  const sidePlaceholder = document.createElement('option');
-  sidePlaceholder.value = '';
-  sidePlaceholder.textContent = '左右';
-  sideSelect.appendChild(sidePlaceholder);
-  TOOTH_SIDE_OPTIONS.filter(Boolean).forEach(label=>{
-    const opt = document.createElement('option');
-    opt.value = label;
-    opt.textContent = label;
-    sideSelect.appendChild(opt);
-  });
-
-  const archSelect = document.createElement('select');
-  const archPlaceholder = document.createElement('option');
-  archPlaceholder.value = '';
-  archPlaceholder.textContent = '上下';
-  archSelect.appendChild(archPlaceholder);
-  TOOTH_VERTICAL_OPTIONS.filter(Boolean).forEach(label=>{
-    const opt = document.createElement('option');
-    opt.value = label;
-    opt.textContent = label;
-    archSelect.appendChild(opt);
-  });
-
-  const numberSelect = document.createElement('select');
-  const numberPlaceholder = document.createElement('option');
-  numberPlaceholder.value = '';
-  numberPlaceholder.textContent = '1-8';
-  numberSelect.appendChild(numberPlaceholder);
-  TOOTH_NUMBER_OPTIONS.forEach(num=>{
-    const opt = document.createElement('option');
-    opt.value = num;
-    opt.textContent = num;
-    numberSelect.appendChild(opt);
-  });
-
-  const parsedTooth = parseToothValue(row.tooth || '');
-  sideSelect.value = parsedTooth.side || '';
-  archSelect.value = parsedTooth.arch || '';
-  numberSelect.value = parsedTooth.number || '';
-
-  toothWrapper.appendChild(sideSelect);
-  toothWrapper.appendChild(archSelect);
-  toothWrapper.appendChild(numberSelect);
+  const toothWrapper=document.createElement('div'); toothWrapper.className='estimate-tooth';
+  const sideSelect=document.createElement('select'); const sidePH=document.createElement('option'); sidePH.value=''; sidePH.textContent='左右'; sideSelect.appendChild(sidePH);
+  TOOTH_SIDE_OPTIONS.filter(Boolean).forEach(l=>{ const o=document.createElement('option'); o.value=l; o.textContent=l; sideSelect.appendChild(o); });
+  const archSelect=document.createElement('select'); const archPH=document.createElement('option'); archPH.value=''; archPH.textContent='上下'; archSelect.appendChild(archPH);
+  TOOTH_VERTICAL_OPTIONS.filter(Boolean).forEach(l=>{ const o=document.createElement('option'); o.value=l; o.textContent=l; archSelect.appendChild(o); });
+  const numberSelect=document.createElement('select'); const numPH=document.createElement('option'); numPH.value=''; numPH.textContent='1-8'; numberSelect.appendChild(numPH);
+  TOOTH_NUMBER_OPTIONS.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; numberSelect.appendChild(o); });
+  const parsed=parseToothValue(row.tooth||''); sideSelect.value=parsed.side||''; archSelect.value=parsed.arch||''; numberSelect.value=parsed.number||'';
+  toothWrapper.appendChild(sideSelect); toothWrapper.appendChild(archSelect); toothWrapper.appendChild(numberSelect);
   wrapper.appendChild(toothWrapper);
 
-  const categorySelect = document.createElement('select');
-  categorySelect.classList.add('estimate-category');
-  const catBlank = document.createElement('option');
-  catBlank.value = '';
-  catBlank.textContent = '治療種類';
-  categorySelect.appendChild(catBlank);
-  TREATMENT_GROUPS.forEach(group=>{
-    const opt = document.createElement('option');
-    opt.value = group.id;
-    opt.textContent = group.label;
-    categorySelect.appendChild(opt);
-  });
-  categorySelect.value = row.category || '';
-  wrapper.appendChild(categorySelect);
+  const categorySelect=document.createElement('select'); categorySelect.classList.add('estimate-category');
+  const catBlank=document.createElement('option'); catBlank.value=''; catBlank.textContent='治療種類'; categorySelect.appendChild(catBlank);
+  TREATMENT_GROUPS.forEach(g=>{ const o=document.createElement('option'); o.value=g.id; o.textContent=g.label; categorySelect.appendChild(o); });
+  categorySelect.value=row.category||''; wrapper.appendChild(categorySelect);
 
-  const treatmentSelect = document.createElement('select');
-  treatmentSelect.classList.add('estimate-treatment');
-  populateTreatmentOptions(treatmentSelect, row.category);
-  treatmentSelect.value = row.treatment || '';
-  wrapper.appendChild(treatmentSelect);
+  const treatmentSelect=document.createElement('select'); treatmentSelect.classList.add('estimate-treatment');
+  populateTreatmentOptions(treatmentSelect, row.category); treatmentSelect.value=row.treatment||''; wrapper.appendChild(treatmentSelect);
 
-  const quantitySelect = document.createElement('select');
-  quantitySelect.classList.add('estimate-quantity');
-  buildQuantityOptions(quantitySelect, row.quantity || 1);
-  wrapper.appendChild(quantitySelect);
+  const quantitySelect=document.createElement('select'); quantitySelect.classList.add('estimate-quantity'); buildQuantityOptions(quantitySelect, row.quantity||1); wrapper.appendChild(quantitySelect);
 
-  const priceInput = document.createElement('input');
-  priceInput.classList.add('estimate-price');
-  priceInput.type = 'number';
-  priceInput.min = '0';
-  priceInput.step = '100';
-  priceInput.value = String(Math.round(getRowTotal(row)) || 0);
-  wrapper.appendChild(priceInput);
+  const priceInput=document.createElement('input'); priceInput.classList.add('estimate-price'); priceInput.type='number'; priceInput.min='0'; priceInput.step='100'; priceInput.value=String(Math.round(getRowTotal(row))||0); wrapper.appendChild(priceInput);
 
-  const noteInput = document.createElement('textarea');
-  noteInput.className = 'estimate-note';
-  noteInput.placeholder = '備考';
-  noteInput.value = row.note || '';
-  wrapper.appendChild(noteInput);
+  const noteInput=document.createElement('textarea'); noteInput.className='estimate-note'; noteInput.placeholder='備考'; noteInput.value=row.note||''; wrapper.appendChild(noteInput);
 
-  const removeBtn = document.createElement('button');
-  removeBtn.type = 'button';
-  removeBtn.className = 'mini-btn';
-  removeBtn.classList.add('estimate-remove');
-  removeBtn.textContent = '削除';
-  wrapper.appendChild(removeBtn);
+  const removeBtn=document.createElement('button'); removeBtn.type='button'; removeBtn.className='mini-btn estimate-remove'; removeBtn.textContent='削除'; wrapper.appendChild(removeBtn);
 
-  const updateTooth = ()=>{
-    row.tooth = combineToothValue(sideSelect.value, archSelect.value, numberSelect.value);
-    requestRedraw();
-  };
-
+  const updateTooth=()=>{ row.tooth = combineToothValue(sideSelect.value, archSelect.value, numberSelect.value); renderScene(); };
   sideSelect.addEventListener('change', updateTooth);
   archSelect.addEventListener('change', updateTooth);
   numberSelect.addEventListener('change', updateTooth);
 
   categorySelect.addEventListener('change', ()=>{
-    row.category = categorySelect.value;
-    row.treatment = '';
-    row.unitPrice = 0;
-    row.price = 0;
-    populateTreatmentOptions(treatmentSelect, row.category);
-    treatmentSelect.value = '';
-    priceInput.value = '0';
-    updateEstimateSummaryOnly(est);
-    requestRedraw();
+    row.category=categorySelect.value; row.treatment=''; row.unitPrice=0; row.price=0;
+    populateTreatmentOptions(treatmentSelect, row.category); treatmentSelect.value=''; priceInput.value='0';
+    updateEstimateSummaryOnly(est); renderScene();
   });
-
   treatmentSelect.addEventListener('change', ()=>{
-    row.treatment = treatmentSelect.value;
+    row.treatment=treatmentSelect.value;
     const { item } = findTreatment(row.category, row.treatment);
-    if (item){
-      row.unitPrice = item.price;
-      row.price = item.price * row.quantity;
-    } else {
-      row.unitPrice = 0;
-      row.price = 0;
-    }
-    priceInput.value = String(Math.round(getRowTotal(row)) || 0);
-    updateEstimateSummaryOnly(est);
-    requestRedraw();
+    if (item){ row.unitPrice=item.price; row.price=item.price*(row.quantity||1); }
+    else { row.unitPrice=0; row.price=0; }
+    priceInput.value=String(Math.round(getRowTotal(row))||0);
+    updateEstimateSummaryOnly(est); renderScene();
   });
-
   quantitySelect.addEventListener('change', ()=>{
-    const prevQty = row.quantity || 1;
-    const newQty = Math.min(99, Math.max(1, parseInt(quantitySelect.value, 10) || 1));
-    let unit = row.unitPrice;
-    if ((!unit || unit <= 0) && row.price){
-      unit = row.price / prevQty;
-    }
-    row.quantity = newQty;
-    row.unitPrice = unit || 0;
-    row.price = (unit || 0) * newQty;
-    priceInput.value = String(Math.round(getRowTotal(row)) || 0);
-    updateEstimateSummaryOnly(est);
-    requestRedraw();
+    const prevQty=row.quantity||1;
+    const newQty=Math.min(99,Math.max(1,parseInt(quantitySelect.value,10)||1));
+    let unit=row.unitPrice;
+    if ((!unit||unit<=0) && row.price){ unit=row.price/prevQty; }
+    row.quantity=newQty; row.unitPrice=unit||0; row.price=(unit||0)*newQty;
+    priceInput.value=String(Math.round(getRowTotal(row))||0);
+    updateEstimateSummaryOnly(est); renderScene();
   });
-
   priceInput.addEventListener('input', ()=>{
-    const val = Number(priceInput.value);
-    row.price = Number.isFinite(val) ? val : 0;
-    const qty = row.quantity || 1;
-    row.unitPrice = qty ? (row.price / qty) : row.price;
-    updateEstimateSummaryOnly(est);
-    requestRedraw();
+    const val=Number(priceInput.value);
+    row.price=Number.isFinite(val)?val:0;
+    const qty=row.quantity||1;
+    row.unitPrice=qty ? (row.price/qty) : row.price;
+    updateEstimateSummaryOnly(est); renderScene();
   });
-
-  noteInput.addEventListener('input', ()=>{
-    row.note = noteInput.value;
-    requestRedraw();
-  });
-
+  noteInput.addEventListener('input', ()=>{ row.note=noteInput.value; renderScene(); });
   removeBtn.addEventListener('click', ()=>{
-    if (est.rows.length <= 1){
-      const blank = makeEstimateRow();
-      Object.assign(row, blank);
-    } else {
-      est.rows.splice(index, 1);
-    }
-    refreshEstimateEditor();
-    requestRedraw();
+    if (est.rows.length<=1){ Object.assign(row, makeEstimateRow()); }
+    else { est.rows.splice(index,1); }
+    refreshEstimateEditor(); renderScene();
   });
 
   return wrapper;
 }
-
-function updateEstimateSummaryOnly(est){
-  if (!est || !estimateTotalDisplayEl || !estimateMonthlyDisplayEl) return;
-  const total = calculateEstimateTotal(est);
-  estimateTotalDisplayEl.textContent = `合計（税込）：${formatCurrency(total)}`;
-  const monthly = calculateMonthlyPayment(total, est.loanMonths, est.interestRate || ESTIMATE_INTEREST_RATE);
-  estimateMonthlyDisplayEl.textContent = formatCurrency(monthly);
-}
-
 function refreshEstimateEditor(){
-  if (!estimateEditorEl || !estimateRowsEl || !estimateTotalDisplayEl || !estimateMonthlyDisplayEl) return;
-  const pg = currentPage();
-  if (!pg || pg.kind !== 'estimate'){
-    estimateEditorEl.style.display = 'none';
-    return;
-  }
-
-  const est = ensureEstimateDataForPage(pg);
-  estimateEditorEl.style.display = 'block';
+  const pg=currentPage();
+  if (!pg || pg.kind!=='estimate'){ estimateEditorEl.style.display='none'; return; }
+  const est=ensureEstimateDataForPage(pg);
+  estimateEditorEl.style.display='block';
   ensureLoanOption(est.loanMonths);
-  if (loanMonthsSelectEl){
-    loanMonthsSelectEl.value = String(est.loanMonths);
-  }
-
-  estimateRowsEl.innerHTML = '';
-  est.rows.forEach((row, idx)=>{
-    estimateRowsEl.appendChild(createEstimateRowElement(row, idx, est));
-  });
-
+  if (loanMonthsSelectEl) loanMonthsSelectEl.value=String(est.loanMonths);
+  estimateRowsEl.innerHTML='';
+  est.rows.forEach((row,idx)=>{ estimateRowsEl.appendChild(createEstimateRowElement(row, idx, est)); });
   updateEstimateSummaryOnly(est);
 }
-
 if (addEstimateRowBtn){
   addEstimateRowBtn.addEventListener('click', ()=>{
-    const pg = currentPage();
-    if (!pg || pg.kind !== 'estimate'){
-      alert('見積書ページを選択してから行を追加してください。');
-      return;
-    }
-    const est = ensureEstimateDataForPage(pg);
-    est.rows.push(makeEstimateRow());
-    refreshEstimateEditor();
-    requestRedraw();
+    const pg=currentPage();
+    if (!pg || pg.kind!=='estimate'){ alert('見積書ページを選択してから行を追加してください。'); return; }
+    const est=ensureEstimateDataForPage(pg); est.rows.push(makeEstimateRow());
+    refreshEstimateEditor(); renderScene();
   });
 }
-
 if (loanMonthsSelectEl){
   loanMonthsSelectEl.addEventListener('change', ()=>{
-    const pg = currentPage();
-    if (!pg || pg.kind !== 'estimate') return;
-    const months = Math.min(60, Math.max(1, parseInt(loanMonthsSelectEl.value, 10) || 12));
-    pg.estimate.loanMonths = months;
-    loanMonthsSelectEl.value = String(months);
-    refreshEstimateEditor();
-    requestRedraw();
+    const pg=currentPage(); if (!pg || pg.kind!=='estimate') return;
+    const months=Math.min(60,Math.max(1,parseInt(loanMonthsSelectEl.value,10)||12));
+    pg.estimate.loanMonths=months; loanMonthsSelectEl.value=String(months);
+    refreshEstimateEditor(); renderScene();
   });
 }
 
-/* =========================
-   患者データ保存 / 読み込み
-========================= */
+/* ========= 患者データ保存/復元 ========= */
 const PATIENT_EXPORT_VERSION = 2;
-
 function imageToDataURL(img){
-  try {
-    const w = img.naturalWidth || img.width;
-    const h = img.naturalHeight || img.height;
-    if (!w || !h) return null;
-    const off = document.createElement('canvas');
-    off.width = w; off.height = h;
-    const g = off.getContext('2d');
-    g.drawImage(img, 0, 0, w, h);
+  try{
+    const w=img.naturalWidth||img.width; const h=img.naturalHeight||img.height; if (!w||!h) return null;
+    const off=document.createElement('canvas'); off.width=w; off.height=h; const g=off.getContext('2d'); g.drawImage(img,0,0,w,h);
     return off.toDataURL('image/png');
-  } catch (err) {
-    console.warn('画像をデータURLに変換できませんでした', err);
-    return null;
-  }
+  }catch(e){ console.warn('画像→DataURL失敗',e); return null; }
 }
-
 function dataURLToImage(dataUrl){
-  return new Promise((resolve, reject)=>{
-    const img = new Image();
-    img.onload = ()=> resolve(img);
-    img.onerror = ()=> reject(new Error('画像の読み込みに失敗しました'));
-    img.src = dataUrl;
+  return new Promise((resolve,reject)=>{
+    const img=new Image(); img.onload=()=>resolve(img); img.onerror=()=>reject(new Error('画像読み込み失敗')); img.src=dataUrl;
   });
 }
-
 async function serializePatientData(){
-  const patient = {
-    name: document.getElementById('ptName').value.trim(),
-    id: document.getElementById('ptId').value.trim()
-  };
-
-  const serializedPages = [];
-  let missingImages = false;
+  const patient = { name: document.getElementById('ptName').value.trim(), id: document.getElementById('ptId').value.trim() };
+  const serializedPages=[]; let missingImages=false;
   for (const pg of pages){
-    const strokes = pg.strokes.map(s=>({
-      mode: s.mode,
-      width: s.width,
-      color: s.color,
-      points: s.points.map(p=>({x:p.x, y:p.y}))
-    }));
-
-    const items = [];
+    const strokes = pg.strokes.map(s=>({ mode:s.mode, width:s.width, color:s.color, points:s.points.map(p=>({x:p.x,y:p.y})) }));
+    const items=[];
     for (const it of pg.items){
-      const imageData = imageToDataURL(it.img);
-      if (!imageData) missingImages = true;
-      items.push({
-        type: it.type,
-        x: it.x,
-        y: it.y,
-        w: it.w,
-        h: it.h,
-        angle: it.angle || 0,
-        imageData,
-        qrData: it.type==='qr' && it.qrData ? it.qrData : undefined
-      });
+      const imageData=imageToDataURL(it.img); if (!imageData) missingImages=true;
+      items.push({ type:it.type, x:it.x,y:it.y,w:it.w,h:it.h,angle:it.angle||0, imageData, qrData: it.type==='qr' ? it.qrData : undefined });
     }
-
-    let bg = null;
+    let bg=null;
     if (pg.bg){
-      const imageData = imageToDataURL(pg.bg.img);
-      if (!imageData) missingImages = true;
-      bg = {
-        x: pg.bg.x,
-        y: pg.bg.y,
-        w: pg.bg.w,
-        h: pg.bg.h,
-        angle: pg.bg.angle || 0,
-        imageData
-      };
+      const imageData=imageToDataURL(pg.bg.img); if (!imageData) missingImages=true;
+      bg={ x:pg.bg.x, y:pg.bg.y, w:pg.bg.w, h:pg.bg.h, angle:pg.bg.angle||0, imageData };
     }
-
-    const kind = pg.kind === 'estimate' ? 'estimate' : 'blank';
-    const pagePayload = { kind, strokes, items, bg };
-    if (kind === 'estimate'){
-      const est = ensureEstimateDataForPage(pg);
-      pagePayload.estimate = serializeEstimate(est);
+    const kind = pg.kind==='estimate' ? 'estimate' : 'blank';
+    const pagePayload={ kind, strokes, items, bg };
+    if (kind==='estimate'){
+      const est=ensureEstimateDataForPage(pg);
+      pagePayload.estimate=serializeEstimate(est);
     }
     serializedPages.push(pagePayload);
   }
-
-  const payload = {
-    version: PATIENT_EXPORT_VERSION,
-    exportedAt: new Date().toISOString(),
-    patient,
-    showLines,
-    view: { scale:view.scale, tx:view.tx, ty:view.ty },
-    pages: serializedPages
-  };
-
+  const payload={ version:PATIENT_EXPORT_VERSION, exportedAt:new Date().toISOString(), patient, showLines, view:{...view}, pages:serializedPages };
   return { payload, missingImages };
 }
-
 async function restorePatientData(data){
-  if (!data || typeof data !== 'object'){ throw new Error('形式が正しくありません'); }
-
-  const newPages = [];
-  const pageList = Array.isArray(data.pages) ? data.pages : [];
-  for (const pgData of pageList){
-    const kind = pgData && pgData.kind === 'estimate' ? 'estimate' : 'blank';
+  if (!data || typeof data!=='object') throw new Error('形式が正しくありません');
+  const newPages=[]; const list=Array.isArray(data.pages)?data.pages:[];
+  for (const pgData of list){
+    const kind = pgData && pgData.kind==='estimate' ? 'estimate' : 'blank';
     const pg = makeEmptyPage(kind);
     pg.strokes = Array.isArray(pgData.strokes) ? pgData.strokes.map(s=>({
-      mode: s.mode === 'hl' ? 'hl' : 'pen',
-      width: typeof s.width === 'number' ? s.width : (s.mode === 'hl' ? lineWidthHL : lineWidthPen),
-      color: s.color,
-      points: Array.isArray(s.points) ? s.points.map(p=>({x:p.x, y:p.y})) : []
+      mode: (s.mode==='hl'?'hl':'pen'),
+      width: typeof s.width==='number'?s.width:(s.mode==='hl'?lineWidthHL:lineWidthPen),
+      color: s.color, points: Array.isArray(s.points)?s.points.map(p=>({x:p.x,y:p.y})):[]
     })) : [];
-
-    pg.items = [];
+    pg.items=[];
     if (Array.isArray(pgData.items)){
       for (const item of pgData.items){
         if (!item || !item.imageData) continue;
-        try {
+        try{
           const img = await dataURLToImage(item.imageData);
-          const restored = {
-            type: item.type || 'qr',
-            img,
-            x: typeof item.x === 'number' ? item.x : 0,
-            y: typeof item.y === 'number' ? item.y : 0,
-            w: typeof item.w === 'number' ? item.w : (img.naturalWidth || img.width),
-            h: typeof item.h === 'number' ? item.h : (img.naturalHeight || img.height),
-            angle: typeof item.angle === 'number' ? item.angle : 0
-          };
-          if (restored.type === 'qr' && item.qrData) restored.qrData = item.qrData;
+          const restored = { type:item.type||'qr', img, x:typeof item.x==='number'?item.x:0, y:typeof item.y==='number'?item.y:0,
+            w:typeof item.w==='number'?item.w:(img.naturalWidth||img.width),
+            h:typeof item.h==='number'?item.h:(img.naturalHeight||img.height),
+            angle:typeof item.angle==='number'?item.angle:0 };
+          if (restored.type==='qr' && item.qrData) restored.qrData=item.qrData;
           pg.items.push(restored);
-        } catch (err) {
-          console.warn('スタンプの復元に失敗しました', err);
-        }
+        }catch(e){ console.warn('スタンプ復元失敗',e); }
       }
     }
-
     if (pgData.bg && pgData.bg.imageData){
-      try {
+      try{
         const bgImg = await dataURLToImage(pgData.bg.imageData);
-        pg.bg = {
-          img: bgImg,
-          x: typeof pgData.bg.x === 'number' ? pgData.bg.x : 0,
-          y: typeof pgData.bg.y === 'number' ? pgData.bg.y : 0,
-          w: typeof pgData.bg.w === 'number' ? pgData.bg.w : (bgImg.naturalWidth || bgImg.width),
-          h: typeof pgData.bg.h === 'number' ? pgData.bg.h : (bgImg.naturalHeight || bgImg.height),
-          angle: typeof pgData.bg.angle === 'number' ? pgData.bg.angle : 0
-        };
-      } catch (err) {
-        console.warn('背景の復元に失敗しました', err);
-      }
+        pg.bg = { img:bgImg, x:pgData.bg.x||0, y:pgData.bg.y||0, w:pgData.bg.w||(bgImg.naturalWidth||bgImg.width), h:pgData.bg.h||(bgImg.naturalHeight||bgImg.height), angle:pgData.bg.angle||0 };
+      }catch(e){ console.warn('背景復元失敗',e); }
     }
-
-    if (kind === 'estimate'){
-      const estData = pgData.estimate || {};
+    if (kind==='estimate'){
+      const estData = pgData.estimate||{};
       const rows = Array.isArray(estData.rows) ? estData.rows.map(r=>normalizeEstimateRow({...r})) : [makeEstimateRow()];
-      pg.estimate.rows = rows.length ? rows : [makeEstimateRow()];
-      const loan = parseInt(estData.loanMonths, 10);
-      pg.estimate.loanMonths = Math.min(60, Math.max(1, Number.isFinite(loan) ? loan : 12));
-      const interest = Number(estData.interestRate);
-      pg.estimate.interestRate = Number.isFinite(interest) ? interest : ESTIMATE_INTEREST_RATE;
+      pg.estimate.rows = rows.length?rows:[makeEstimateRow()];
+      const loan=parseInt(estData.loanMonths,10); pg.estimate.loanMonths=Math.min(60,Math.max(1,Number.isFinite(loan)?loan:12));
+      const interest=Number(estData.interestRate); pg.estimate.interestRate=Number.isFinite(interest)?interest:ESTIMATE_INTEREST_RATE;
     }
-
     newPages.push(pg);
   }
-
-  pages = newPages.length ? newPages : [makeEmptyPage('blank')];
-  pageIndex = 0;
-  selectedIdx = -1;
-  bgSelected = false;
-  current = null;
-  drawing = false;
-  dragState = null;
-  pinchStart = null;
-  activeStrokes.clear();
-  pointers.clear();
-
-  const patient = data.patient || {};
-  document.getElementById('ptName').value = patient.name || '';
-  document.getElementById('ptId').value = patient.id || '';
-
-  if (typeof data.showLines === 'boolean') showLines = data.showLines;
-
-  if (!CANVAS_SCALE_LOCKED && data.view){
-    if (typeof data.view.scale === 'number'){
-      view.scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, data.view.scale));
-    }
-    view.tx = typeof data.view.tx === 'number' ? data.view.tx : 0;
-    view.ty = typeof data.view.ty === 'number' ? data.view.ty : 0;
-  } else {
-    view.scale = 1; view.tx = 0; view.ty = 0;
-  }
-
-  redraw();
-  refreshEstimateEditor();
+  pages=newPages.length?newPages:[makeEmptyPage('blank')];
+  pageIndex=0; selectedIdx=-1; bgSelected=false;
+  renderScene(); redrawInkFromHistory(currentPage()); renderUI();
+  const patient=data.patient||{}; document.getElementById('ptName').value = patient.name||''; document.getElementById('ptId').value = patient.id||'';
+  if (typeof data.showLines==='boolean') showLines=data.showLines;
 }
 
-function sanitizeFileName(str){
-  return str.replace(/[\\/:*?"<>|]/g, '_').slice(0, 40) || 'patient';
-}
-
-/* =========================
-   背景・QR・既定スタンプ（ページ単位）
-========================= */
+/* ========= 背景・QR・既定スタンプ ========= */
 document.getElementById('bgInput').addEventListener('change', (ev)=>{
   const file = ev.target.files?.[0]; if (!file) return;
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = ()=>{
-    const baseW = img.naturalWidth || img.width || 1;
-    const baseH = img.naturalHeight || img.height || 1;
-    const rect = canvas.getBoundingClientRect();
-    const visibleWidth = rect.width / view.scale;
-    const visibleHeight = rect.height / view.scale;
-    const maxWidth = visibleWidth * 0.8;
-    const maxHeight = visibleHeight * 0.8;
-    let fitScale = Math.min(maxWidth / baseW, maxHeight / baseH);
-    if (!Number.isFinite(fitScale) || fitScale <= 0) fitScale = 1;
-    fitScale = Math.min(fitScale, 1);
-    const initialScale = fitScale * 0.9;
-    const scale = initialScale > 0 ? initialScale : fitScale;
-    const w = Math.max(40, baseW * scale);
-    const h = Math.max(40, baseH * scale);
-    const visibleLeft = (-view.tx) / view.scale;
-    const visibleTop = (-view.ty) / view.scale;
-    const x = visibleLeft + (visibleWidth - w) / 2;
-    const y = visibleTop + (visibleHeight - h) / 2;
+    const baseW = img.naturalWidth||img.width||1;
+    const baseH = img.naturalHeight||img.height||1;
+    const rect = scene.getBoundingClientRect();
+    const maxW = rect.width*0.8, maxH=rect.height*0.8;
+    let scale = Math.min(maxW/baseW, maxH/baseH); if (!Number.isFinite(scale)||scale<=0) scale=1; scale=Math.min(scale,1)*0.9;
+    const w = Math.max(40, baseW*scale), h=Math.max(40, baseH*scale);
+    const center = centerOfCanvas();
     const pg=currentPage();
-    pg.bg={ img, x, y, w, h, angle:0 };
-    selectedIdx=-1; bgSelected=true; redraw(); URL.revokeObjectURL(url); ev.target.value='';
+    pg.bg={ img, x:center.x-w/2, y:center.y-h/2, w, h, angle:0 };
+    selectedIdx=-1; bgSelected=true;
+    renderScene(); renderUI();
+    URL.revokeObjectURL(url); ev.target.value='';
   };
-  img.src = url;
+  img.src=url;
 });
 
 document.getElementById('qrBtn').addEventListener('click', ()=>{
   const data = prompt('QRにするURLまたはテキスト：', 'https://minami-dentalclinic.com');
   if (!data) return; placeQR(data);
 });
-
 function placeQR(data){
-  const size = 240;
-  const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
-  const img = new Image(); img.crossOrigin = 'anonymous';
-  img.onload = ()=>{
-    const initW=180, initH=180;
-    const center = screenToLogical(centerOfCanvas());
-    const pg = currentPage();
-    pg.items.push({ type:'qr', qrData:data, img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 });
-    selectedIdx = pg.items.length - 1; bgSelected=false; redraw();
+  const size=240;
+  const src=`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
+  const img=new Image(); img.crossOrigin='anonymous';
+  img.onload=()=>{
+    const initW=180, initH=180; const center=centerOfCanvas(); const pg=currentPage();
+    pg.items.push({ type:'qr', qrData:data, img, x:center.x-initW/2, y:center.y-initH/2, w:initW, h:initH, angle:0 });
+    selectedIdx=pg.items.length-1; bgSelected=false;
+    renderScene(); renderUI();
   };
-  img.onerror = ()=> alert('QR画像の取得に失敗しました。ネットワークをご確認ください。');
-  img.src = src;
+  img.onerror=()=>alert('QR画像の取得に失敗しました。ネットワークをご確認ください。');
+  img.src=src;
 }
 
 document.getElementById('implantBtn').addEventListener('click', ()=>{
-  const img = makeImplantStamp(); const initW=180, initH=320;
-  const center = screenToLogical(centerOfCanvas());
-  const pg = currentPage();
-  pg.items.push({ type:'implant', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 });
-  selectedIdx = pg.items.length - 1; bgSelected=false; redraw();
+  const img=makeImplantStamp(); const initW=180, initH=320; const center=centerOfCanvas(); const pg=currentPage();
+  pg.items.push({ type:'implant', img, x:center.x-initW/2, y:center.y-initH/2, w:initW, h:initH, angle:0 });
+  selectedIdx=pg.items.length-1; bgSelected=false; renderScene(); renderUI();
 });
 document.getElementById('crownBtn').addEventListener('click', ()=>{
-  const img = makeCrownStamp(); const initW=260, initH=220;
-  const center = screenToLogical(centerOfCanvas());
-  const pg = currentPage();
-  pg.items.push({ type:'crown', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 });
-  selectedIdx = pg.items.length - 1; bgSelected=false; redraw();
+  const img=makeCrownStamp(); const initW=260, initH=220; const center=centerOfCanvas(); const pg=currentPage();
+  pg.items.push({ type:'crown', img, x:center.x-initW/2, y:center.y-initH/2, w:initW, h:initH, angle:0 });
+  selectedIdx=pg.items.length-1; bgSelected=false; renderScene(); renderUI();
 });
 
-/* 既定スタンプ生成 */
+/* 簡易スタンプ生成（既存のまま） */
 function makeImplantStamp(){
-  const w=180, h=320, off=document.createElement('canvas'); off.width=w; off.height=h; const g=off.getContext('2d');
+  const w=180,h=320,off=document.createElement('canvas'); off.width=w; off.height=h; const g=off.getContext('2d');
   g.clearRect(0,0,w,h);
-  g.fillStyle = '#e5e7eb'; g.strokeStyle = '#9ca3af'; g.lineWidth = 2;
-  g.beginPath(); g.roundRect(50, 20, 80, 50, 10); g.fill(); g.stroke();
-  g.fillStyle = '#d1d5db'; g.fillRect(75, 70, 30, 18);
-  g.fillStyle = '#cbd5e1'; g.strokeStyle = '#94a3b8'; g.lineWidth = 2;
-  g.beginPath(); g.roundRect(60, 88, 60, 180, 20); g.fill(); g.stroke();
-  g.strokeStyle = '#94a3b8'; g.lineWidth = 2;
-  for (let y=100;y<250;y+=14){ g.beginPath(); g.moveTo(62,y); g.lineTo(118,y+16); g.stroke(); }
-  g.fillStyle = '#cbd5e1'; g.beginPath(); g.moveTo(60,268); g.lineTo(120,268); g.lineTo(90,300); g.closePath(); g.fill(); g.stroke();
-  g.fillStyle = 'rgba(0,0,0,0.05)'; g.beginPath(); g.ellipse(90, 310, 45, 8, 0, 0, Math.PI*2); g.fill();
+  g.fillStyle='#e5e7eb'; g.strokeStyle='#9ca3af'; g.lineWidth=2; g.beginPath(); g.roundRect(50,20,80,50,10); g.fill(); g.stroke();
+  g.fillStyle='#d1d5db'; g.fillRect(75,70,30,18);
+  g.fillStyle='#cbd5e1'; g.strokeStyle='#94a3b8'; g.lineWidth=2; g.beginPath(); g.roundRect(60,88,60,180,20); g.fill(); g.stroke();
+  g.strokeStyle='#94a3b8'; g.lineWidth=2; for (let y=100;y<250;y+=14){ g.beginPath(); g.moveTo(62,y); g.lineTo(118,y+16); g.stroke(); }
+  g.fillStyle='#cbd5e1'; g.beginPath(); g.moveTo(60,268); g.lineTo(120,268); g.lineTo(90,300); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle='rgba(0,0,0,0.05)'; g.beginPath(); g.ellipse(90,310,45,8,0,0,Math.PI*2); g.fill();
   const img=new Image(); img.src=off.toDataURL('image/png'); return img;
 }
 function makeCrownStamp(){
-  const w=260, h=220, off=document.createElement('canvas'); off.width=w; off.height=h; const g=off.getContext('2d');
+  const w=260,h=220,off=document.createElement('canvas'); off.width=w; off.height=h; const g=off.getContext('2d');
   g.clearRect(0,0,w,h);
-  g.fillStyle = '#ffffff'; g.strokeStyle = '#94a3b8'; g.lineWidth = 2;
+  g.fillStyle='#ffffff'; g.strokeStyle='#94a3b8'; g.lineWidth=2;
   g.beginPath();
-  g.moveTo(40,140);
-  g.bezierCurveTo(40,90, 70,60, 110,60);
-  g.bezierCurveTo(125,35, 135,30, 150,60);
-  g.bezierCurveTo(190,60, 220,90, 220,140);
-  g.bezierCurveTo(220,175, 200,190, 130,190);
-  g.bezierCurveTo(70,190, 40,175, 40,140);
+  g.moveTo(40,140); g.bezierCurveTo(40,90,70,60,110,60);
+  g.bezierCurveTo(125,35,135,30,150,60);
+  g.bezierCurveTo(190,60,220,90,220,140);
+  g.bezierCurveTo(220,175,200,190,130,190);
+  g.bezierCurveTo(70,190,40,175,40,140);
   g.closePath(); g.fill(); g.stroke();
-  g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.ellipse(120,95,60,20,-0.4,0,Math.PI*2); g.fill();
-  g.strokeStyle = '#cbd5e1'; g.lineWidth=1.5; g.beginPath(); g.moveTo(90,120); g.quadraticCurveTo(130,110,170,120);
-  g.moveTo(110,140); g.quadraticCurveTo(130,135,150,140); g.stroke();
-  g.fillStyle = 'rgba(0,0,0,0.06)'; g.beginPath(); g.ellipse(130,205,70,10,0,0,Math.PI*2); g.fill();
+  g.fillStyle='rgba(255,255,255,0.7)'; g.beginPath(); g.ellipse(120,95,60,20,-0.4,0,Math.PI*2); g.fill();
+  g.strokeStyle='#cbd5e1'; g.lineWidth=1.5; g.beginPath(); g.moveTo(90,120); g.quadraticCurveTo(130,110,170,120); g.moveTo(110,140); g.quadraticCurveTo(130,135,150,140); g.stroke();
+  g.fillStyle='rgba(0,0,0,0.06)'; g.beginPath(); g.ellipse(130,205,70,10,0,0,Math.PI*2); g.fill();
   const img=new Image(); img.src=off.toDataURL('image/png'); return img;
 }
 
-/* =========================
-   当たり判定（回転対応）
-========================= */
+/* ========= 当たり判定（回転対応） ========= */
 function worldToLocal(pt, it){
-  const {cx, cy} = getItemCenter(it);
-  const a = -(it.angle || 0);
-  const dx = pt.x - cx, dy = pt.y - cy;
-  return { x:  dx*Math.cos(a) - dy*Math.sin(a),
-           y:  dx*Math.sin(a) + dy*Math.cos(a) };
+  const {cx, cy}=getItemCenter(it);
+  const a=-(it.angle||0);
+  const dx=pt.x-cx, dy=pt.y-cy;
+  return { x: dx*Math.cos(a)-dy*Math.sin(a), y: dx*Math.sin(a)+dy*Math.cos(a) };
 }
 function localHitTest(ptLocal, it){
-  const halfW = it.w/2, halfH = it.h/2;
-  const inBody = (ptLocal.x>=-halfW && ptLocal.x<=halfW && ptLocal.y>=-halfH && ptLocal.y<=halfH);
-  const r = HANDLE_SIZE/2;
+  const halfW=it.w/2, halfH=it.h/2;
+  const inBody  = (ptLocal.x>=-halfW && ptLocal.x<=halfW && ptLocal.y>=-halfH && ptLocal.y<=halfH);
+  const r=HANDLE_SIZE/2;
   const inResize = (ptLocal.x>=halfW-r && ptLocal.x<=halfW+r && ptLocal.y>=halfH-r && ptLocal.y<=halfH+r);
   const rotY = -halfH - ROT_HANDLE_OFFSET;
   const inRotate = ((ptLocal.x-0)**2 + (ptLocal.y-rotY)**2) <= (HANDLE_SIZE*0.6)**2;
   return { inBody, inResize, inRotate };
 }
-function hitTestItem(L){
+function hitTestItem(pt){
   const pg=currentPage();
   for (let i=pg.items.length-1;i>=0;i--){
-    const it=pg.items[i]; const local=worldToLocal(L,it); const h=localHitTest(local,it);
+    const it=pg.items[i]; const local=worldToLocal(pt,it); const h=localHitTest(local,it);
     if (h.inRotate) return {kind:'rotate', idx:i};
     if (h.inResize) return {kind:'resize', idx:i};
     if (h.inBody)   return {kind:'body',   idx:i};
   }
   return {kind:'none', idx:-1};
 }
-
-function hitTestBackground(L){
-  const bg=currentPage().bg;
-  if (!bg) return {kind:'none', idx:-1};
-  const local=worldToLocal(L,bg); const h=localHitTest(local,bg);
+function hitTestBackground(pt){
+  const bg=currentPage().bg; if (!bg) return {kind:'none', idx:-1};
+  const local=worldToLocal(pt,bg); const h=localHitTest(local,bg);
   if (h.inRotate) return {kind:'rotate', idx:-1};
   if (h.inResize) return {kind:'resize', idx:-1};
   if (h.inBody)   return {kind:'body',   idx:-1};
   return {kind:'none', idx:-1};
 }
 
-/* =========================
-   入力処理：描画／選択／パンピンチ
-========================= */
-const pointers=new Map();
-const activeStrokes=new Map(); // pointerId -> queue of pending stroke entries
-let pinchStart=null; // {mid,dist,view}
-let dragState=null;  // {target:'item'|'bg', kind:'move'|'resize'|'rotate', idx, start, itemStart, startAngleScreen?, handleStartLocal?}
-let selectedIdx=-1;
-let bgSelected=false;
-let drawing=false;
-let current=null;
-let pointerCaptureWorks=true;
+/* ========= 入力（超低レイテンシ：inkへ逐次描画） ========= */
+const pointers = new Map();
+let dragState=null; // 選択操作
+let drawing=false;  // ペン描画中
+let currentStroke=null; // {mode,color,width,points:[]}
 
-function hasActiveStrokes(){
-  for (const entries of activeStrokes.values()){
-    if (entries.length>0) return true;
-  }
-  return false;
+function getEventPoint(e){
+  const r=ink.getBoundingClientRect();
+  return {x:e.clientX - r.left, y:e.clientY - r.top};
 }
-
-function latestStroke(){
-  let last=null;
-  for (const entries of activeStrokes.values()){
-    if (entries.length>0){
-      last = entries[entries.length-1].stroke;
-    }
-  }
-  return last;
+function collectCoalescedPoints(e){
+  const r=ink.getBoundingClientRect();
+  let evs = typeof e.getCoalescedEvents==='function' ? e.getCoalescedEvents() : null;
+  if (!evs || !evs.length) return [ {x:e.clientX - r.left, y:e.clientY - r.top} ];
+  return evs.map(ev=>({ x: ev.clientX - r.left, y: ev.clientY - r.top }));
 }
-
-function updateDrawingState(){
-  drawing = hasActiveStrokes();
-  current = latestStroke();
+function angleTo(it, ptWorld){
+  const {cx,cy}=getItemCenter(it);
+  return Math.atan2(ptWorld.y-cy, ptWorld.x-cx);
 }
-
-function enqueueStroke(pointerId, stroke){
-  let queue = activeStrokes.get(pointerId);
-  if (!queue){
-    queue = [];
-    activeStrokes.set(pointerId, queue);
-  }
-  const lastPoint = stroke.points[stroke.points.length-1] || null;
-  queue.push({ stroke, lastPoint });
-  updateDrawingState();
-}
-
-function dequeueStroke(pointerId){
-  const queue = activeStrokes.get(pointerId);
-  if (!queue || queue.length===0) return null;
-  const entry = queue.shift();
-  if (queue.length===0){
-    activeStrokes.delete(pointerId);
-  }
-  updateDrawingState();
-  return entry;
-}
-
-function peekStroke(pointerId){
-  const queue = activeStrokes.get(pointerId);
-  if (!queue || queue.length===0) return null;
-  return queue[queue.length-1];
-}
-
-function getEventPoint(e){ const r=canvas.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
-function twoFingerInfo(){ const arr=[...pointers.values()]; const p0=arr[0],p1=arr[1];
-  return { mid:{x:(p0.x+p1.x)/2, y:(p0.y+p1.y)/2}, dist:Math.hypot(p1.x-p0.x, p1.y-p0.y) }; }
-function angleTo(it, ptWorld){ const {cx,cy}=getItemCenter(it); return Math.atan2(ptWorld.y-cy, ptWorld.x-cx); }
-
-function collectPointerPoints(e){
-  const rect = canvas.getBoundingClientRect();
-  let events = null;
-  if (typeof e.getCoalescedEvents === 'function'){
-    try {
-      events = e.getCoalescedEvents();
-    } catch (err) {
-      events = null;
-    }
-  }
-  if (events && events.length){
-    const pts = events.map(ev=>({ x: ev.clientX - rect.left, y: ev.clientY - rect.top }));
-    return { points: pts, last: pts[pts.length-1] };
-  }
-  const single = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-  return { points: [single], last: single };
-}
-
-function applyPinchTransform(mid, dist){
-  if (!pinchStart) return false;
-  const base = pinchStart.view;
-  if (CANVAS_SCALE_LOCKED){
-    const nextScale = 1;
-    const nextTx = base.tx + (mid.x - pinchStart.mid.x);
-    const nextTy = base.ty + (mid.y - pinchStart.mid.y);
-    const changed = view.scale !== nextScale || view.tx !== nextTx || view.ty !== nextTy;
-    view.scale = nextScale;
-    view.tx = nextTx;
-    view.ty = nextTy;
-    return changed;
-  }
-  const pg = currentPage();
-  if (pg && pg.kind === 'blank'){
-    let s = base.scale * (dist / pinchStart.dist);
-    s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
-    const scaleChanged = view.scale !== s;
-    view.scale = s;
-    const clampChanged = clampViewForPage();
-    return scaleChanged || clampChanged;
-  }
-  let s = base.scale * (dist / pinchStart.dist);
-  s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
-  const Lx = (pinchStart.mid.x - base.tx) / base.scale;
-  const Ly = (pinchStart.mid.y - base.ty) / base.scale;
-  const nextTx = mid.x - Lx * s;
-  const nextTy = mid.y - Ly * s;
-  const changed = view.scale !== s || view.tx !== nextTx || view.ty !== nextTy;
-  view.scale = s;
-  view.tx = nextTx;
-  view.ty = nextTy;
-  return clampViewForPage() || changed;
-}
-
-canvas.addEventListener('pointerdown',(e)=>{
-  e.preventDefault();
-  if (pointerCaptureWorks && canvas.setPointerCapture){
-    try {
-      canvas.setPointerCapture(e.pointerId);
-    } catch (err){
-      pointerCaptureWorks=false;
-      console.warn('Pointer capture failed; continuing without capture.', err);
-    }
-  }
-  const pt=getEventPoint(e); pointers.set(e.pointerId, pt);
-  const pg=currentPage();
-
-  if (tool==='select'){
-    const L=screenToLogical(pt);
-    if (pointers.size===1){
-      const hit=hitTestItem(L);
-      if (hit.idx>=0){
-        selectedIdx=hit.idx; bgSelected=false;
-        const it=pg.items[selectedIdx];
-        if (hit.kind==='rotate' && (it.type==='implant'||it.type==='crown')){
-          dragState={
-            target:'item',
-            kind:'rotate',
-            idx:selectedIdx,
-            start:L,
-            itemStart:Object.assign({}, it),
-            startAngleScreen:angleTo(it,L)
-          };
-        } else if (hit.kind==='resize'){
-          const itemCopy = Object.assign({}, it);
-          dragState={
-            target:'item',
-            kind:'resize',
-            idx:selectedIdx,
-            start:L,
-            itemStart:itemCopy,
-            handleStartLocal:worldToLocal(L, itemCopy)
-          };
-        } else if (hit.kind==='body'){
-          dragState={
-            target:'item',
-            kind:'move',
-            idx:selectedIdx,
-            start:L,
-            itemStart:Object.assign({}, it)
-          };
-        } else {
-          dragState=null;
-        }
-      } else {
-        const bgHit=hitTestBackground(L);
-        if (bgHit.kind!=='none'){
-          selectedIdx=-1; bgSelected=true;
-          const bg=pg.bg;
-          if (!bg){ dragState=null; }
-          else if (bgHit.kind==='rotate'){
-            dragState={
-              target:'bg',
-              kind:'rotate',
-              idx:-1,
-              start:L,
-              itemStart:Object.assign({}, bg),
-              startAngleScreen:angleTo(bg,L)
-            };
-          } else if (bgHit.kind==='resize'){
-            const bgCopy = Object.assign({}, bg);
-            dragState={
-              target:'bg',
-              kind:'resize',
-              idx:-1,
-              start:L,
-              itemStart:bgCopy,
-              handleStartLocal:worldToLocal(L, bgCopy)
-            };
-          } else if (bgHit.kind==='body'){
-            dragState={
-              target:'bg',
-              kind:'move',
-              idx:-1,
-              start:L,
-              itemStart:Object.assign({}, bg)
-            };
-          } else {
-            dragState=null;
-          }
-        } else {
-          selectedIdx=-1; bgSelected=false; dragState=null;
-        }
-      }
-      requestRedraw();
-    }
-    if (pointers.size===2){
-      const {mid,dist}=twoFingerInfo();
-      pinchStart={mid,dist,view:{ scale:view.scale, tx:view.tx, ty:view.ty }};
-    }
-    return;
-  }
-
-  // 描画
-  if (pointers.size===1){
-    const stroke={mode:tool, color:(tool==='pen'?penColor:undefined), width:(tool==='pen'?lineWidthPen:lineWidthHL), points:[screenToLogical(pt)]};
-    enqueueStroke(e.pointerId, stroke);
-  } else if (pointers.size===2){
-    const {mid,dist}=twoFingerInfo();
-    pinchStart={mid,dist,view:{ scale:view.scale, tx:view.tx, ty:view.ty }};
-  }
-  requestRedraw();
-},{passive:false});
-
-canvas.addEventListener('pointermove',(e)=>{
-  if (!pointers.has(e.pointerId)) return;
-  e.preventDefault();
-  const { points, last } = collectPointerPoints(e);
-  if (last) pointers.set(e.pointerId, last);
-  const pg=currentPage();
-
-  if (tool==='select'){
-    if (pointers.size===1 && dragState){
-      const L=screenToLogical(pointers.get(e.pointerId));
-      const target = dragState.target==='bg' ? pg.bg : pg.items[dragState.idx];
-      if (target){
-        if (dragState.kind==='move'){
-          const dx=L.x-dragState.start.x, dy=L.y-dragState.start.y;
-          target.x=dragState.itemStart.x+dx; target.y=dragState.itemStart.y+dy;
-        } else if (dragState.kind==='resize'){
-          const localNow=worldToLocal(L, dragState.itemStart);
-          const startLocal = dragState.handleStartLocal || {x:dragState.itemStart.w/2, y:dragState.itemStart.h/2};
-          let scaleX = startLocal.x !== 0 ? localNow.x / startLocal.x : 1;
-          let scaleY = startLocal.y !== 0 ? localNow.y / startLocal.y : 1;
-          if (!Number.isFinite(scaleX) || scaleX === 0) scaleX = 1;
-          if (!Number.isFinite(scaleY) || scaleY === 0) scaleY = 1;
-          const baseW = dragState.itemStart.w;
-          const baseH = dragState.itemStart.h;
-          const newW = Math.max(40, Math.abs(baseW * scaleX));
-          const newH = Math.max(40, Math.abs(baseH * scaleY));
-          const {cx,cy}=getItemCenter(dragState.itemStart);
-          target.w=newW; target.h=newH; target.x=cx-target.w/2; target.y=cy-target.h/2;
-        } else if (dragState.kind==='rotate'){
-          const ang0=dragState.startAngleScreen; const ang1=angleTo(dragState.itemStart,L);
-          target.angle=(dragState.itemStart.angle||0)+(ang1-ang0);
-        }
-        requestRedraw();
-      }
-      return;
-    }
-    if (pointers.size===2){
-      const {mid,dist}=twoFingerInfo();
-      if (applyPinchTransform(mid, dist)) requestRedraw();
-      return;
-    }
-    return;
-  }
-
-  // 描画
-  if (pointers.size===1){
-    const entry=peekStroke(e.pointerId);
-    if (entry){
-      for (const pt of points){
-        const logical = screenToLogical(pt);
-        entry.stroke.points.push(logical);
-        entry.lastPoint = logical;
-      }
-      requestRedraw();
-    }
-  } else if (pointers.size===2){
-    const {mid,dist}=twoFingerInfo();
-    if (applyPinchTransform(mid, dist)) requestRedraw();
-  }
-},{passive:false});
-
-canvas.addEventListener('pointerup',(e)=>{
-  e.preventDefault();
-  const pg=currentPage();
-
-  if (tool==='select'){ dragState=null; pointers.delete(e.pointerId); if (pointers.size<2) pinchStart=null; return; }
-
-  const entry = dequeueStroke(e.pointerId);
-  if (entry){
-    const stroke = entry.stroke;
-    let finalPoint = entry.lastPoint;
-    if (!finalPoint){
-      const pt=pointers.get(e.pointerId);
-      if (pt) finalPoint = screenToLogical(pt);
-    }
-    if (finalPoint) stroke.points.push(finalPoint);
-    pg.strokes.push(stroke);
-  }
-
-  if (!activeStrokes.has(e.pointerId)) pointers.delete(e.pointerId);
-  if (pointers.size<2) pinchStart=null;
-  requestRedraw();
-},{passive:false});
-
-canvas.addEventListener('pointercancel',(e)=>{
-  e.preventDefault();
-  dragState=null;
-  dequeueStroke(e.pointerId);
-  if (!activeStrokes.has(e.pointerId)) pointers.delete(e.pointerId);
-  if (pointers.size<2) pinchStart=null;
-  requestRedraw();
-},{passive:false});
-
-/* =========================
-   ツール・ページ操作・保存
-========================= */
-const btns={ pen:document.getElementById('penBtn'), hl:document.getElementById('hlBtn'), sel:document.getElementById('selectBtn') };
-function setTool(next){ tool=next;
-  btns.pen.classList.toggle('active', tool==='pen');
-  btns.hl .classList.toggle('active', tool==='hl');
-  btns.sel.classList.toggle('active', tool==='select');
-  if (tool!=='select'){ selectedIdx=-1; bgSelected=false; dragState=null; redraw(); }
-}
-btns.pen.onclick=()=>setTool('pen');
-btns.hl.onclick =()=>setTool('hl');
-btns.sel.onclick=()=>setTool('select');
-
-document.getElementById('toggleLinesBtn').onclick=()=>{ showLines=!showLines; redraw(); };
-
-document.getElementById('undoBtn').onclick=()=>{
-  const pg=currentPage();
-  if (hasActiveStrokes()){
-    activeStrokes.clear();
-    updateDrawingState();
-    redraw();
-    return;
-  }
-  if (pg.strokes.length>0){ pg.strokes.pop(); redraw(); return; }
-  if (pg.items.length>0){ pg.items.pop(); selectedIdx=-1; bgSelected=false; redraw(); return; }
-};
-document.getElementById('clearPenBtn').onclick=()=>{
-  activeStrokes.clear();
-  updateDrawingState();
-  currentPage().strokes.length=0;
-  redraw();
-};
-document.getElementById('clearAllBtn').onclick=()=>{
-  if (!confirm('現在ページの背景/スタンプ/描画をすべて消去します。')) return;
-  const pg=currentPage();
-  activeStrokes.clear();
-  updateDrawingState();
-  pg.strokes.length=0; pg.items.length=0; pg.bg=null;
-  selectedIdx=-1; bgSelected=false; redraw();
-};
-document.getElementById('saveBtn').onclick=async()=>{
-  const jspdf = window.jspdf;
-  if (!jspdf || !jspdf.jsPDF){
-    alert('PDF生成ライブラリの読み込みに失敗しました。ページを再読み込みして再試行してください。');
-    return;
-  }
-
-  const rect = canvas.getBoundingClientRect();
-  if (!rect.width || !rect.height){
-    alert('キャンバスのサイズが取得できませんでした。');
-    return;
-  }
-
-  const orientation = rect.width >= rect.height ? 'landscape' : 'portrait';
-  const pdf = new jspdf.jsPDF({ orientation, unit:'px', format:[rect.width, rect.height] });
-  const timestamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-
-  const prevState = {
-    pageIndex,
-    selectedIdx,
-    bgSelected,
-    current,
-    view: { ...view }
-  };
-
-  try {
-    for (let i=0;i<pages.length;i++){
-      pageIndex = i;
-      selectedIdx = -1;
-      bgSelected = false;
-      current = null;
-      redraw();
-
-      const dataUrl = await new Promise(resolve=>{
-        requestAnimationFrame(()=> resolve(canvas.toDataURL('image/png')));
-      });
-
-      if (i>0) pdf.addPage([rect.width, rect.height], orientation);
-      pdf.addImage(dataUrl, 'PNG', 0, 0, rect.width, rect.height);
-    }
-
-    pdf.save(`consult_pages_${timestamp}.pdf`);
-  } catch (err) {
-    console.error(err);
-    alert('PDFの作成に失敗しました。もう一度お試しください。');
-  } finally {
-    pageIndex = prevState.pageIndex;
-    selectedIdx = prevState.selectedIdx;
-    bgSelected = prevState.bgSelected;
-    current = prevState.current;
-    view.scale = prevState.view.scale;
-    view.tx = prevState.view.tx;
-    view.ty = prevState.view.ty;
-    redraw();
-  }
-};
-
-document.getElementById('exportPatientBtn').onclick=async()=>{
-  try {
-    const { payload, missingImages } = await serializePatientData();
-    const namePart = sanitizeFileName(payload.patient.id || payload.patient.name || 'patient');
-    const timestamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${namePart}_${timestamp}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url), 1000);
-    if (missingImages){
-      alert('一部の画像を取得できなかったため、書き出したデータに含まれていない可能性があります。');
-    }
-  } catch (err) {
-    console.error(err);
-    alert('患者データの書き出しに失敗しました。');
-  }
-};
-
-document.getElementById('importPatientInput').addEventListener('change', async(ev)=>{
-  const file = ev.target.files?.[0];
-  if (!file) return;
-  try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-    if (data.version && data.version > PATIENT_EXPORT_VERSION){
-      const proceed = confirm('新しい形式のファイルです。読み込みを試みますか？');
-      if (!proceed) return;
-    }
-    await restorePatientData(data);
-    alert('患者データを読み込みました。');
-  } catch (err) {
-    console.error(err);
-    alert('患者データの読み込みに失敗しました。ファイルをご確認ください。');
-  } finally {
-    ev.target.value = '';
-  }
-});
 
 /* ペン色 */
 [['colorBlack','#111'],['colorRed','#e11d48'],['colorBlue','#2563eb'],['colorYel','#f59e0b']].forEach(([id,col])=>{
@@ -1806,87 +982,322 @@ document.getElementById('importPatientInput').addEventListener('change', async(e
   });
 });
 
+/* ツール切替 */
+const btns={ pen:document.getElementById('penBtn'), hl:document.getElementById('hlBtn'), sel:document.getElementById('selectBtn') };
+function setTool(next){
+  tool=next;
+  btns.pen.classList.toggle('active', tool==='pen');
+  btns.hl .classList.toggle('active', tool==='hl');
+  btns.sel.classList.toggle('active', tool==='select');
+  if (tool!=='select'){ selectedIdx=-1; bgSelected=false; dragState=null; renderUI(); }
+}
+btns.pen.onclick=()=>setTool('pen');
+btns.hl .onclick=()=>setTool('hl');
+btns.sel.onclick=()=>setTool('select');
+
+/* 罫線切替 */
+document.getElementById('toggleLinesBtn').onclick=()=>{ showLines=!showLines; renderScene(); };
+
+/* Undo / クリア / 全消去 */
+document.getElementById('undoBtn').onclick=()=>{
+  const pg=currentPage();
+  if (drawing && currentStroke){
+    // いま描いている途中を破棄
+    currentStroke=null; drawing=false;
+    renderUI();
+    return;
+  }
+  if (pg.strokes.length>0){
+    pg.strokes.pop();
+    redrawInkFromHistory(pg);
+    return;
+  }
+  if (pg.items.length>0){
+    pg.items.pop(); selectedIdx=-1; bgSelected=false; renderScene(); renderUI(); return;
+  }
+};
+document.getElementById('clearPenBtn').onclick=()=>{
+  const pg=currentPage(); pg.strokes.length=0; redrawInkFromHistory(pg);
+};
+document.getElementById('clearAllBtn').onclick=()=>{
+  if (!confirm('現在ページの背景/スタンプ/描画をすべて消去します。')) return;
+  const pg=currentPage(); pg.strokes.length=0; pg.items.length=0; pg.bg=null; selectedIdx=-1; bgSelected=false;
+  redrawInkFromHistory(pg); renderScene(); renderUI();
+};
+
+/* PDF保存（scene + ink を合成。UIは除外） */
+document.getElementById('saveBtn').onclick=async()=>{
+  const jspdf=window.jspdf; if (!jspdf||!jspdf.jsPDF){ alert('PDFライブラリ読み込み失敗'); return; }
+  const rect=scene.getBoundingClientRect(); if (!rect.width||!rect.height){ alert('キャンバスサイズ取得失敗'); return; }
+  const orientation = rect.width >= rect.height ? 'landscape' : 'portrait';
+  const pdf=new jspdf.jsPDF({ orientation, unit:'px', format:[rect.width, rect.height] });
+
+  // 合成用一時Canvas
+  const off=document.createElement('canvas'); off.width=rect.width; off.height=rect.height; const g=off.getContext('2d');
+  const timestamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+
+  const prevIndex=pageIndex;
+  try{
+    for (let i=0;i<pages.length;i++){
+      pageIndex=i;
+      renderScene(); redrawInkFromHistory(currentPage()); renderUI();
+      // scene
+      g.clearRect(0,0,off.width,off.height);
+      g.drawImage(scene, 0,0, off.width, off.height);
+      // ink
+      g.drawImage(ink, 0,0, off.width, off.height);
+      const dataUrl=off.toDataURL('image/png');
+      if (i>0) pdf.addPage([rect.width, rect.height], orientation);
+      pdf.addImage(dataUrl, 'PNG', 0,0, rect.width, rect.height);
+    }
+    pdf.save(`consult_pages_${timestamp}.pdf`);
+  }catch(e){
+    console.error(e); alert('PDFの作成に失敗しました。');
+  }finally{
+    pageIndex=prevIndex; renderScene(); redrawInkFromHistory(currentPage()); renderUI();
+  }
+};
+
+/* エクスポート/インポート */
+document.getElementById('exportPatientBtn').onclick=async()=>{
+  try{
+    const { payload, missingImages } = await serializePatientData();
+    const namePart = sanitizeFileName(payload.patient.id || payload.patient.name || 'patient');
+    const timestamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=`${namePart}_${timestamp}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    if (missingImages) alert('一部の画像が含まれていない可能性があります。');
+  }catch(e){ console.error(e); alert('患者データの書き出しに失敗しました。'); }
+};
+function sanitizeFileName(str){ return str.replace(/[\\/:*?"<>|]/g,'_').slice(0,40)||'patient'; }
+document.getElementById('importPatientInput').addEventListener('change', async(ev)=>{
+  const file=ev.target.files?.[0]; if (!file) return;
+  try{
+    const text=await file.text(); const data=JSON.parse(text);
+    if (data.version && data.version>PATIENT_EXPORT_VERSION){
+      const proceed=confirm('新しい形式のファイルです。読み込みを試みますか？'); if (!proceed) return;
+    }
+    await restorePatientData(data);
+    alert('患者データを読み込みました。');
+  }catch(e){ console.error(e); alert('患者データの読み込みに失敗しました。'); }
+  finally{ ev.target.value=''; }
+});
+
 /* ページ操作 */
 document.getElementById('addPageBtn').onclick=()=>{
   const template = newPageTemplateEl ? newPageTemplateEl.value : 'blank';
-  pages.splice(pageIndex+1, 0, makeEmptyPage(template));
-  pageIndex++; selectedIdx=-1; bgSelected=false; redraw(); refreshEstimateEditor();
+  pages.splice(pageIndex+1,0, makeEmptyPage(template));
+  pageIndex++; selectedIdx=-1; bgSelected=false;
+  renderScene(); redrawInkFromHistory(currentPage()); renderUI(); refreshEstimateEditor(); updatePageIndicator();
 };
-document.getElementById('prevPageBtn').onclick=()=>{ if (pageIndex>0){ pageIndex--; selectedIdx=-1; bgSelected=false; redraw(); refreshEstimateEditor(); } };
-document.getElementById('nextPageBtn').onclick=()=>{ if (pageIndex<pages.length-1){ pageIndex++; selectedIdx=-1; bgSelected=false; redraw(); refreshEstimateEditor(); } };
+document.getElementById('prevPageBtn').onclick=()=>{
+  if (pageIndex>0){ pageIndex--; selectedIdx=-1; bgSelected=false; renderScene(); redrawInkFromHistory(currentPage()); renderUI(); refreshEstimateEditor(); updatePageIndicator(); }
+};
+document.getElementById('nextPageBtn').onclick=()=>{
+  if (pageIndex<pages.length-1){ pageIndex++; selectedIdx=-1; bgSelected=false; renderScene(); redrawInkFromHistory(currentPage()); renderUI(); refreshEstimateEditor(); updatePageIndicator(); }
+};
 document.getElementById('deletePageBtn').onclick=()=>{
   if (pages.length===1){ alert('これ以上削除できません'); return; }
   if (!confirm(`ページ${pageIndex+1}を削除しますか？`)) return;
   pages.splice(pageIndex,1);
   pageIndex = Math.max(0, Math.min(pageIndex, pages.length-1));
-  selectedIdx=-1; bgSelected=false; redraw(); refreshEstimateEditor();
+  selectedIdx=-1; bgSelected=false;
+  renderScene(); redrawInkFromHistory(currentPage()); renderUI(); refreshEstimateEditor(); updatePageIndicator();
 };
-function updatePageIndicator(){
-  const el=document.getElementById('pageIndicator');
-  el.textContent = `${pageIndex+1} / ${pages.length}`;
-}
+function updatePageIndicator(){ document.getElementById('pageIndicator').textContent = `${pageIndex+1} / ${pages.length}`; }
 
-/* =========================
-   説明QRプリセット（localStorage）
-========================= */
-const PRESET_KEY = 'consult_qr_presets_v2';
-const DEFAULT_PRESETS = [
-  {label:'補綴物', data:'https://minami-dentalclinic.com/クラウンによる歯冠修復治療/'},
-  {label:'CR', data:'https://minami-dentalclinic.com/コンポジットレジン修復（cr修復%EF%BC%8Fcr充填）/'},
-  {label:'インレー', data:'https://minami-dentalclinic.com/インレー修復/'},
-  {label:'ブリッジ', data:'https://minami-dentalclinic.com/ブリッジ/'},
-  {label:'歯周治療', data:'https://minami-dentalclinic.com/歯周病治療/'},
-  {label:'抜髄治療', data:'https://minami-dentalclinic.com/抜髄治療/'},
-  {label:'感染根管治療', data:'https://minami-dentalclinic.com/感染根管治療/'},
-  {label:'総義歯', data:'https://minami-dentalclinic.com/総義歯/'},
-  {label:'部分床義歯', data:'https://minami-dentalclinic.com/部分床義歯/'},
-  {label:'インプラント', data:'https://minami-dentalclinic.com/インプラント/'},
-  {label:'中間欠損', data:'https://minami-dentalclinic.com/１歯欠損で両隣に歯がある場合の治療法（インプ/'},
-  {label:'7番欠損', data:'https://minami-dentalclinic.com/７番欠損（６番は残存）時の治療法/'}
+/* ========= QRプリセット（localStorage） ========= */
+const PRESET_KEY='consult_qr_presets_v2';
+const DEFAULT_PRESETS=[
+ {label:'補綴物', data:'https://minami-dentalclinic.com/クラウンによる歯冠修復治療/'},
+ {label:'CR', data:'https://minami-dentalclinic.com/コンポジットレジン修復（cr修復%EF%BC%8Fcr充填）/'},
+ {label:'インレー', data:'https://minami-dentalclinic.com/インレー修復/'},
+ {label:'ブリッジ', data:'https://minami-dentalclinic.com/ブリッジ/'},
+ {label:'歯周治療', data:'https://minami-dentalclinic.com/歯周病治療/'},
+ {label:'抜髄治療', data:'https://minami-dentalclinic.com/抜髄治療/'},
+ {label:'感染根管治療', data:'https://minami-dentalclinic.com/感染根管治療/'},
+ {label:'総義歯', data:'https://minami-dentalclinic.com/総義歯/'},
+ {label:'部分床義歯', data:'https://minami-dentalclinic.com/部分床義歯/'},
+ {label:'インプラント', data:'https://minami-dentalclinic.com/インプラント/'},
+ {label:'中間欠損', data:'https://minami-dentalclinic.com/１歯欠損で両隣に歯がある場合の治療法（インプ/'},
+ {label:'7番欠損', data:'https://minami-dentalclinic.com/７番欠損（６番は残存）時の治療法/'}
 ];
 function loadPresets(){
-  const raw = localStorage.getItem(PRESET_KEY);
-  let presets = [];
-  if (raw){ try{ presets = JSON.parse(raw)||[]; }catch{} }
-  if (presets.length===0){
-    presets = DEFAULT_PRESETS.slice();
-    localStorage.setItem(PRESET_KEY, JSON.stringify(presets));
-  }
+  const raw=localStorage.getItem(PRESET_KEY); let presets=[];
+  if (raw){ try{ presets=JSON.parse(raw)||[]; }catch{} }
+  if (presets.length===0){ presets=DEFAULT_PRESETS.slice(); localStorage.setItem(PRESET_KEY, JSON.stringify(presets)); }
   return presets;
 }
 function savePresets(list){ localStorage.setItem(PRESET_KEY, JSON.stringify(list)); }
 function refreshPresetSelect(){
-  const sel = document.getElementById('qrPresetSelect');
-  const presets = loadPresets();
-  sel.innerHTML = '';
-  presets.forEach((p,i)=>{
-    const opt = document.createElement('option');
-    opt.value = String(i); opt.textContent = p.label;
-    sel.appendChild(opt);
-  });
+  const sel=document.getElementById('qrPresetSelect'); const presets=loadPresets();
+  sel.innerHTML=''; presets.forEach((p,i)=>{ const opt=document.createElement('option'); opt.value=String(i); opt.textContent=p.label; sel.appendChild(opt); });
 }
 document.getElementById('placePresetBtn').onclick=()=>{
-  const i = parseInt(document.getElementById('qrPresetSelect').value, 10);
-  const list = loadPresets();
-  if (isNaN(i) || !list[i]) { alert('候補を選択してください'); return; }
+  const i=parseInt(document.getElementById('qrPresetSelect').value,10);
+  const list=loadPresets(); if (isNaN(i) || !list[i]){ alert('候補を選択してください'); return; }
   placeQR(list[i].data);
 };
 document.getElementById('addPresetBtn').onclick=()=>{
-  const label = document.getElementById('presetLabel').value.trim();
-  const data  = document.getElementById('presetData').value.trim();
-  if (!label || !data){ alert('ラベルとURL/テキストを入力してください'); return; }
-  const list = loadPresets(); list.push({label, data}); savePresets(list);
+  const label=document.getElementById('presetLabel').value.trim();
+  const data =document.getElementById('presetData').value.trim();
+  if (!label||!data){ alert('ラベルとURL/テキストを入力してください'); return; }
+  const list=loadPresets(); list.push({label,data}); savePresets(list);
   document.getElementById('presetLabel').value=''; document.getElementById('presetData').value='';
   refreshPresetSelect(); alert('候補を追加しました');
 };
 
-/* ユーティリティ */
-function centerOfCanvas(){ const r=canvas.getBoundingClientRect(); return {x:r.width/2, y:r.height/2}; }
+/* ========= 選択ツール：UIレイヤで扱う ========= */
+function screenToLogical(pt){ return pt; } // ズーム固定なので同一
 
-/* 初期化 */
-refreshPresetSelect();
-setCanvasSize();
-refreshEstimateEditor();
+ui.addEventListener('pointerdown',(e)=>{
+  if (tool!=='select') return;
+  ui.setPointerCapture?.(e.pointerId);
+  e.preventDefault();
+  const pt=getEventPoint(e); pointers.set(e.pointerId, pt);
+  const L=screenToLogical(pt);
+  const pg=currentPage();
+  const hit=hitTestItem(L);
+  if (hit.idx>=0){
+    selectedIdx=hit.idx; bgSelected=false; const it=pg.items[selectedIdx];
+    if (hit.kind==='rotate'){ dragState={ target:'item', kind:'rotate', idx:selectedIdx, start:L, itemStart:Object.assign({}, it), startAngle:angleTo(it,L) }; }
+    else if (hit.kind==='resize'){ const itemCopy=Object.assign({},it); dragState={ target:'item', kind:'resize', idx:selectedIdx, start:L, itemStart:itemCopy, handleStartLocal:worldToLocal(L,itemCopy) }; }
+    else { dragState={ target:'item', kind:'move', idx:selectedIdx, start:L, itemStart:Object.assign({}, it) }; }
+  }else{
+    const bgh=hitTestBackground(L);
+    if (bgh.kind!=='none'){
+      selectedIdx=-1; bgSelected=true; const bg=pg.bg;
+      if (!bg){ dragState=null; }
+      else if (bgh.kind==='rotate'){ dragState={ target:'bg', kind:'rotate', idx:-1, start:L, itemStart:Object.assign({}, bg), startAngle:angleTo(bg,L) }; }
+      else if (bgh.kind==='resize'){ const bgCopy=Object.assign({},bg); dragState={ target:'bg', kind:'resize', idx:-1, start:L, itemStart:bgCopy, handleStartLocal:worldToLocal(L,bgCopy) }; }
+      else { dragState={ target:'bg', kind:'move', idx:-1, start:L, itemStart:Object.assign({}, bg) }; }
+    }else{
+      selectedIdx=-1; bgSelected=false; dragState=null;
+    }
+  }
+  renderUI();
+});
+ui.addEventListener('pointermove',(e)=>{
+  if (tool!=='select' || !pointers.has(e.pointerId)) return;
+  e.preventDefault();
+  const pt=getEventPoint(e); pointers.set(e.pointerId, pt);
+  if (!dragState) return;
+  const L=screenToLogical(pt); const pg=currentPage();
+  const target = dragState.target==='bg' ? pg.bg : pg.items[dragState.idx];
+  if (!target) return;
+  if (dragState.kind==='move'){
+    const dx=L.x-dragState.start.x, dy=L.y-dragState.start.y;
+    target.x=dragState.itemStart.x+dx; target.y=dragState.itemStart.y+dy;
+  }else if (dragState.kind==='resize'){
+    const localNow=worldToLocal(L, dragState.itemStart);
+    const startLocal = dragState.handleStartLocal || {x:dragState.itemStart.w/2, y:dragState.itemStart.h/2};
+    let scaleX = startLocal.x!==0 ? localNow.x/startLocal.x : 1;
+    let scaleY = startLocal.y!==0 ? localNow.y/startLocal.y : 1;
+    if (!Number.isFinite(scaleX)||scaleX===0) scaleX=1;
+    if (!Number.isFinite(scaleY)||scaleY===0) scaleY=1;
+    const baseW=dragState.itemStart.w, baseH=dragState.itemStart.h;
+    const newW=Math.max(40, Math.abs(baseW*scaleX));
+    const newH=Math.max(40, Math.abs(baseH*scaleY));
+    const {cx,cy}=getItemCenter(dragState.itemStart);
+    target.w=newW; target.h=newH; target.x=cx-target.w/2; target.y=cy-target.h/2;
+  }else if (dragState.kind==='rotate'){
+    const ang0=dragState.startAngle; const ang1=angleTo(dragState.itemStart,L);
+    target.angle=(dragState.itemStart.angle||0)+(ang1-ang0);
+  }
+  renderScene(); renderUI();
+});
+ui.addEventListener('pointerup',(e)=>{
+  if (tool!=='select') return;
+  e.preventDefault();
+  pointers.delete(e.pointerId); dragState=null; renderUI();
+});
+ui.addEventListener('pointercancel',(e)=>{
+  if (tool!=='select') return;
+  e.preventDefault(); pointers.delete(e.pointerId); dragState=null; renderUI();
+});
+
+/* ========= ペン/蛍光：Inkレイヤで最速描画 ========= */
+function beginStroke(mode, color, width, startPt){
+  currentStroke = { mode, color, width, points:[startPt] };
+  drawing = true;
+}
+function appendStrokePoints(pts){
+  if (!currentStroke || pts.length===0) return;
+  const arr=currentStroke.points;
+  // インクリメンタル描画：最後の点から新しい各点へ
+  ictx.save();
+  ictx.lineCap='round'; ictx.lineJoin='round';
+  if (currentStroke.mode==='pen'){ ictx.globalAlpha=1; ictx.strokeStyle=currentStroke.color||'#111'; ictx.lineWidth=currentStroke.width||lineWidthPen; }
+  else { ictx.globalAlpha=0.28; ictx.strokeStyle='#ffd600'; ictx.lineWidth=currentStroke.width||lineWidthHL; }
+  let prev = arr[arr.length-1];
+  ictx.beginPath();
+  ictx.moveTo(prev.x, prev.y);
+  for (const p of pts){
+    arr.push(p);
+    ictx.lineTo(p.x, p.y);
+  }
+  ictx.stroke();
+  ictx.restore();
+}
+function endStroke(){
+  if (!currentStroke) return;
+  currentPage().strokes.push(currentStroke);
+  currentStroke=null; drawing=false;
+}
+
+function handlePointerDownInk(e){
+  if (tool!=='pen' && tool!=='hl') return;
+  ink.setPointerCapture?.(e.pointerId);
+  e.preventDefault();
+  const pts = collectCoalescedPoints(e);
+  const start = pts[pts.length-1];
+  pointers.set(e.pointerId, start);
+  beginStroke(tool, tool==='pen'?penColor:undefined, tool==='pen'?lineWidthPen:lineWidthHL, start);
+}
+function handlePointerMoveInk(e){
+  if (!pointers.has(e.pointerId)) return;
+  e.preventDefault();
+  const pts = collectCoalescedPoints(e);
+  if (tool==='pen' || tool==='hl'){
+    appendStrokePoints(pts);
+  }
+}
+function handlePointerUpInk(e){
+  e.preventDefault();
+  if (tool==='pen' || tool==='hl'){ endStroke(); }
+  pointers.delete(e.pointerId);
+}
+function handlePointerCancelInk(e){
+  e.preventDefault();
+  currentStroke=null; drawing=false; pointers.delete(e.pointerId);
+}
+
+// 標準 pointer イベント
+ink.addEventListener('pointerdown', handlePointerDownInk, {passive:false});
+ink.addEventListener('pointermove', handlePointerMoveInk, {passive:false});
+ink.addEventListener('pointerup',   handlePointerUpInk,   {passive:false});
+ink.addEventListener('pointercancel',handlePointerCancelInk,{passive:false});
+
+// 低レイテンシ（対応環境） pointerrawupdate
+ink.addEventListener('pointerrawupdate', (e)=>{
+  // 生イベントでも同じ処理（coalescedも併用）
+  if (!pointers.has(e.pointerId)) return;
+  if (tool!=='pen' && tool!=='hl') return;
+  const pts = collectCoalescedPoints(e);
+  appendStrokePoints(pts);
+}, {passive:true});
+
+/* ========= 初期化 ========= */
+function refreshAll(){
+  refreshPresetSelect();
+  setCanvasSize();
+  refreshEstimateEditor();
+  updatePageIndicator();
+}
+refreshAll();
+
 </script>
 </body>
 </html>
