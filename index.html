@@ -2,9 +2,8 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>コンサル資料キット（Pencil遅延ゼロ版）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>コンサル資料キット（汎用スタライス対応・遅延ゼロ）</title>
 <style>
   :root { --bg:#f7f8fa; --panel:#ffffff; --line:#e5e7eb; --hover:#f0f3f8; --accent:#2563eb; }
   html,body { height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:#1f2937; }
@@ -12,7 +11,7 @@
   * { -webkit-tap-highlight-color: transparent; }
   #wrap { display:flex; height:100vh; }
 
-  /* サイドバー */
+  /* サイドバー（最低限） */
   #sidebar {
     width:340px; max-width:42vw; min-width:270px;
     background:var(--panel); border-right:1px solid var(--line);
@@ -34,7 +33,7 @@
   input[type=file]{ display:none; }
   label.as-btn { display:block; width:100%; text-align:center; }
 
-  /* キャンバス：単一 */
+  /* キャンバス（単一） */
   #main { flex:1; display:flex; flex-direction:column; min-width:0; position:relative; overflow:hidden; }
   #canvasPane {
     flex:1; position:relative; margin:12px; border:1px solid var(--line); border-radius:12px; background:#fff;
@@ -59,22 +58,7 @@
   .swatch { width:28px; height:28px; border-radius:7px; border:1px solid var(--line); cursor:pointer; }
   .swatch.active { outline:2px solid var(--accent); outline-offset:-2px; }
 
-  /* 見積エディタ（簡易） */
-  #estimateEditor { display:none; }
-  #estimateRows { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
-  .estimate-row {
-    display:grid; gap:10px; grid-template-columns:repeat(2, minmax(0, 1fr));
-    align-items:flex-start; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f9fafb;
-  }
-  .estimate-row .estimate-tooth { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:6px; grid-column:1 / -1; }
-  .estimate-row .estimate-note { grid-column:1 / -1; min-height:52px; }
-  @media (max-width: 600px) { .estimate-row { grid-template-columns:1fr; } }
-  .mini-btn { padding:6px 10px; font-size:12px; border-radius:8px; }
-  .estimate-summary { margin-top:14px; padding-top:10px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
-  .estimate-loan { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  .estimate-loan select { width:auto; min-width:110px; }
-
-  /* タップ/選択無効（Pencil遅延対策） */
+  /* iOSのテキスト選択/コールアウト抑止（全域） */
   html, body, #canvasPane, canvas#c {
     -webkit-user-select: none;
     user-select: none;
@@ -85,69 +69,14 @@
 </head>
 <body>
 <div id="wrap">
-  <!-- 左サイドバー -->
+  <!-- 左サイドバー（必要なUIだけ） -->
   <aside id="sidebar">
-    <div class="section">
-      <h2>ページ</h2>
-      <div class="row">
-        <button id="prevPageBtn" class="full">◀︎ 前</button>
-        <div id="pageIndicator" class="full" style="text-align:center; padding:8px;">1 / 1</div>
-        <button id="nextPageBtn" class="full">次 ▶︎</button>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <button id="addPageBtn" class="full">ページ追加</button>
-        <button id="deletePageBtn" class="full">現在ページ削除</button>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <select id="newPageTemplate" class="full">
-          <option value="blank">白紙ページ</option>
-          <option value="estimate">見積書ページ</option>
-        </select>
-      </div>
-      <div class="muted">※ ページごとに背景・スタンプ・線を保持します</div>
-    </div>
-
-    <div class="section">
-      <h2>患者情報</h2>
-      <div class="row"><input id="ptName" class="full" type="text" placeholder="患者名"></div>
-      <div class="row" style="margin-top:6px"><input id="ptId" class="full" type="text" placeholder="ID / 診察券番号"></div>
-      <div class="muted">左上に小さく表示（保存にも反映）</div>
-    </div>
-
-    <div class="section" id="estimateEditor">
-      <h2>見積書</h2>
-      <div class="muted">見積書ページを選択すると編集できます</div>
-      <div id="estimateRows"></div>
-      <button id="addEstimateRowBtn" class="full" style="margin-top:10px">行を追加</button>
-      <div class="estimate-summary">
-        <strong id="estimateTotalDisplay">合計（税込）：¥0</strong>
-        <div class="estimate-loan">
-          <label for="loanMonthsSelect">デンタルローン回数</label>
-          <select id="loanMonthsSelect">
-            <option value="6">6 回</option><option value="12">12 回</option><option value="18">18 回</option>
-            <option value="24">24 回</option><option value="36">36 回</option><option value="48">48 回</option><option value="60">60 回</option>
-          </select>
-          <div>月々約 <span id="estimateMonthlyDisplay">¥0</span></div>
-        </div>
-        <div class="muted">※ 年利3.9%で自動計算されます</div>
-      </div>
-    </div>
-
-    <div class="section">
-      <h2>Pencil動作</h2>
-      <div class="row">
-        <input id="blockScribble" type="checkbox" checked>
-        <label for="blockScribble">Apple Pencilでフォームにフォーカスしない（Scribble無効化）</label>
-      </div>
-      <div class="muted">※ ON推奨。ON中はPencilで左側の入力欄に触れてもフォーカスされません（指/キーボードは通常通り）</div>
-    </div>
-
     <div class="section">
       <h2>描画ツール</h2>
       <div class="row">
         <button id="penBtn" class="full active">ペン</button>
-        <button id="hlBtn" class="full">蛍光</button>
-        <button id="selectBtn" class="full" title="スタンプの移動・回転・サイズ変更">選択</button>
+        <button id="hlBtn"  class="full">蛍光</button>
+        <button id="undoBtn" class="full">元に戻す</button>
       </div>
       <div class="row" style="margin-top:8px; align-items:center">
         <div id="colorBlack" class="swatch active" title="黒" style="background:#111"></div>
@@ -157,27 +86,7 @@
         <span class="muted" style="margin-left:6px">※色はペンのみ</span>
       </div>
       <div class="row" style="margin-top:8px">
-        <button id="undoBtn" class="full">元に戻す</button>
         <button id="clearPenBtn" class="full" title="手描きのみクリア">描画クリア</button>
-      </div>
-    </div>
-
-    <div class="section">
-      <h2>画像・QR・既定スタンプ</h2>
-      <label class="as-btn"><input id="bgInput" type="file" accept="image/*">背景画像を読み込む</label>
-      <button id="qrBtn" class="full" title="URL/テキストを入力してQR配置">自由入力のQRを追加</button>
-      <div class="row" style="margin-top:8px">
-        <button id="implantBtn" class="full" title="インプラントスタンプ">インプラント</button>
-        <button id="crownBtn"   class="full" title="被せ物（クラウン）スタンプ">被せ物</button>
-      </div>
-      <button id="clearAllBtn" class="full" style="margin-top:8px" title="現在ページを全消去">現在ページ 全消去</button>
-    </div>
-
-    <div class="section">
-      <h2>表示 / 出力</h2>
-      <div class="row">
-        <button id="toggleLinesBtn" class="full">罫線 ON/OFF</button>
-        <button id="saveBtn" class="full">PDF保存（全ページ）</button>
       </div>
     </div>
   </aside>
@@ -186,46 +95,37 @@
   <main id="main">
     <div id="canvasPane">
       <canvas id="c"></canvas>
-      <div id="hint">Pencil/指:描く　2本指:パン（ズーム固定）</div>
+      <div id="hint">スタライスペン/指/マウス：描く（離してすぐ次を書けます）</div>
     </div>
   </main>
 </div>
 
-<!-- jsPDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
 <script>
-/* ======= OSジェスチャ抑止（iOS） ======= */
-['gesturestart','gesturechange','gestureend'].forEach(type=>{
-  window.addEventListener(type, e=>{ if (e.cancelable) e.preventDefault(); }, { passive:false });
+/* ===== OSのジェスチャ/クリック派生を全ブロック ===== */
+['gesturestart','gesturechange','gestureend'].forEach(t=>{
+  window.addEventListener(t, e=>{ if (e.cancelable) e.preventDefault(); }, { passive:false });
+});
+['click','dblclick','contextmenu'].forEach(t=>{
+  document.addEventListener(t, e=>{
+    // 描画中やキャンバスクリック時の合成クリックを殺す
+    if (e.target === canvas || canvas.contains(e.target)) {
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
+    }
+  }, { capture:true, passive:false });
 });
 
 /* ========================= 基本セットアップ ========================= */
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d', { alpha:true, desynchronized:true });
 const pane = document.getElementById('canvasPane');
-const sidebar = document.getElementById('sidebar');
-const blockScribbleEl = document.getElementById('blockScribble');
 
-let tool = 'pen';              // 'pen' | 'hl' | 'select'
+let tool = 'pen';              // 'pen' | 'hl'
 let lineWidthPen = 3;
 let lineWidthHL  = 16;
 let penColor = '#111';
-let showLines = false;
-const LINE_STEP = 30;
 
-const pages = [makeEmptyPage('blank')];
-let pageIndex = 0;
-function currentPage(){ return pages[pageIndex]; }
-
-function makeEmptyPage(kind='blank'){
-  return { kind,
-    strokes: [], // {mode,width,color?,points:[{x,y}...]}
-    items:   [], // {type,img,x,y,w,h,angle,qrData?}
-    bg: null,
-    estimate: kind==='estimate' ? makeEstimateData() : null
-  };
-}
+const strokes = []; // 既存ストロークのみ（ページ機能等は省略：まずは“書ける”最優先）
 
 /* ========== DPRとサイズ ========== */
 function setCanvasSize(){
@@ -241,7 +141,7 @@ function setCanvasSize(){
 }
 new ResizeObserver(setCanvasSize).observe(pane);
 
-/* ========== 描画（単一キャンバス） ========== */
+/* ========== 描画 ========== */
 function clearDevice(){
   const dpr = window.devicePixelRatio || 1;
   const r = canvas.getBoundingClientRect();
@@ -250,84 +150,83 @@ function clearDevice(){
 }
 function renderAll(){
   clearDevice();
-  const pg=currentPage();
-  const r = canvas.getBoundingClientRect();
-  // 罫線
-  if (showLines && pg.kind==='blank'){
-    ctx.save();
-    ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=1;
-    ctx.beginPath();
-    for (let y=0;y<r.height;y+=LINE_STEP){ ctx.moveTo(0,y); ctx.lineTo(r.width,y); }
-    ctx.stroke(); ctx.restore();
-  }
-  // 背景
-  if (pg.bg) drawPlacedImage(pg.bg);
-  // 見積ページ（必要なら拡張）
-  if (pg.kind==='estimate') drawEstimatePage(pg);
-  // スタンプ
-  for (const it of pg.items) drawPlacedImage(it);
-  // 既存手描き
-  for (const s of pg.strokes) drawStroke(s);
-  // 患者情報
-  drawPatientInfo();
-}
-
-/* ========== ユーティリティ ========== */
-function centerOfCanvas(){
-  const r = canvas.getBoundingClientRect();
-  return { x:r.width/2, y:r.height/2 };
-}
-function getItemCenter(it){ return { cx: it.x + it.w/2, cy: it.y + it.h/2 }; }
-function drawPlacedImage(it){
-  const {cx,cy}=getItemCenter(it);
-  ctx.save(); ctx.translate(cx,cy); ctx.rotate(it.angle||0);
-  ctx.drawImage(it.img, -it.w/2, -it.h/2, it.w, it.h);
-  ctx.restore();
+  for (const s of strokes) drawStroke(s);
 }
 function drawStroke(s){
   if (!s.points || s.points.length<2) return;
-  ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.save();
+  ctx.lineCap='round'; ctx.lineJoin='round';
   if (s.mode==='pen'){ ctx.globalAlpha=1; ctx.strokeStyle=s.color||'#111'; ctx.lineWidth=s.width||lineWidthPen; }
   else { ctx.globalAlpha=0.28; ctx.strokeStyle='#ffd600'; ctx.lineWidth=s.width||lineWidthHL; }
   ctx.beginPath();
   ctx.moveTo(s.points[0].x, s.points[0].y);
   for (let i=1;i<s.points.length;i++) ctx.lineTo(s.points[i].x, s.points[i].y);
-  ctx.stroke(); ctx.restore();
-}
-function drawPatientInfo(){
-  const name = document.getElementById('ptName').value.trim();
-  const id   = document.getElementById('ptId').value.trim();
-  if (!name && !id) return;
-  ctx.save(); ctx.fillStyle='#374151'; ctx.font='12px system-ui, sans-serif'; ctx.textBaseline='top';
-  ctx.fillText(`${name}${name && id ? ' ' : ''}${id}`, 10, 10);
+  ctx.stroke();
   ctx.restore();
 }
 
-/* ========== 見積（簡易ダミー） ========== */
-const ESTIMATE_INTEREST_RATE = 0.039;
-const currencyFormatter = new Intl.NumberFormat('ja-JP');
-function makeEstimateRow(){ return { tooth:'', category:'', treatment:'', unitPrice:0, price:0, quantity:1, note:'' }; }
-function makeEstimateData(){ return { rows:[makeEstimateRow()], loanMonths:12, interestRate:ESTIMATE_INTEREST_RATE }; }
-function drawEstimatePage(pg){
-  // 必要なら詳細テーブルを移植。Pencil遅延対策とは独立。
-}
-
-/* ====== Pencil即時ストローク ====== */
+/* ========== 即時ストローク ========== */
 let drawing=false;
 let currentStroke=null;
 
-function getPointFromEvent(e){
+function getCanvasPointFromClient(x, y){
   const r = canvas.getBoundingClientRect();
-  return { x: e.clientX - r.left, y: e.clientY - r.top };
-}
-function getCoalescedPoints(e){
-  const r = canvas.getBoundingClientRect();
-  let list = (typeof e.getCoalescedEvents==='function') ? e.getCoalescedEvents() : null;
-  if (!list || !list.length) return [ getPointFromEvent(e) ];
-  return list.map(ev=>({ x: ev.clientX - r.left, y: ev.clientY - r.top }));
+  return { x: x - r.left, y: y - r.top };
 }
 
+/* ---- Touch Events（スタライスペン=タッチ扱いを確実にカバー） ---- */
+function onTouchStart(e){
+  if (e.cancelable) e.preventDefault();
+  if (!e.touches || e.touches.length===0) return;
+  // 複数本の指が来ても、最初の1本で描画（必要なら2本指パン等を後で実装）
+  const t = e.touches[0];
+  const p = getCanvasPointFromClient(t.clientX, t.clientY);
+  beginStroke(tool, tool==='pen'?penColor:undefined, tool==='pen'?lineWidthPen:lineWidthHL, p);
+}
+function onTouchMove(e){
+  if (!drawing) return;
+  if (e.cancelable) e.preventDefault();
+  if (!e.touches || e.touches.length===0) return;
+  const t = e.touches[0];
+  const p = getCanvasPointFromClient(t.clientX, t.clientY);
+  appendStrokePoints([p]);
+}
+function onTouchEnd(e){
+  if (e.cancelable) e.preventDefault();
+  // 指が全部離れた時だけ確定
+  if (e.touches && e.touches.length>0) return;
+  if (drawing) endStroke();
+}
+function onTouchCancel(e){
+  if (e.cancelable) e.preventDefault();
+  cancelStroke();
+}
+
+/* ---- Pointer/Mouse もサポート（マウスでも同様に速い） ---- */
+function onPointerDown(e){
+  if (e.cancelable) e.preventDefault();
+  const p = getCanvasPointFromClient(e.clientX, e.clientY);
+  beginStroke(tool, tool==='pen'?penColor:undefined, tool==='pen'?lineWidthPen:lineWidthHL, p);
+}
+function onPointerMove(e){
+  if (!drawing) return;
+  if (e.cancelable) e.preventDefault();
+  const p = getCanvasPointFromClient(e.clientX, e.clientY);
+  appendStrokePoints([p]);
+}
+function onPointerUp(e){
+  if (e.cancelable) e.preventDefault();
+  if (drawing) endStroke();
+}
+function onPointerCancel(e){
+  if (e.cancelable) e.preventDefault();
+  cancelStroke();
+}
+
+/* ---- 核心：即時描画（再レンダを挟まない） ---- */
 function beginStroke(mode, color, width, startPt){
+  // 未確定が残っていたら掃除
+  if (drawing && currentStroke) endStroke();
   currentStroke = { mode, color, width, points:[startPt] };
   drawing = true;
 }
@@ -339,115 +238,44 @@ function appendStrokePoints(pts){
   ctx.lineCap='round'; ctx.lineJoin='round';
   if (currentStroke.mode==='pen'){ ctx.globalAlpha=1; ctx.strokeStyle=currentStroke.color||'#111'; ctx.lineWidth=currentStroke.width||lineWidthPen; }
   else { ctx.globalAlpha=0.28; ctx.strokeStyle='#ffd600'; ctx.lineWidth=currentStroke.width||lineWidthHL; }
+
   let prev = arr[arr.length-1];
   ctx.beginPath(); ctx.moveTo(prev.x, prev.y);
   for (const p of pts){ arr.push(p); ctx.lineTo(p.x, p.y); }
-  ctx.stroke(); ctx.restore();
+  ctx.stroke();
+  ctx.restore();
 }
 function endStroke(){
   if (!currentStroke) return;
-  currentPage().strokes.push(currentStroke);
+  strokes.push(currentStroke);
+  currentStroke=null; drawing=false;
+}
+function cancelStroke(){
   currentStroke=null; drawing=false;
 }
 
-/* ====== iPad Scribble介入対策 ====== */
-function blurActiveIfPen(e){
-  if (e.pointerType === 'pen') {
-    // 既にフォーカス中のフォームがあるとScribble遷移が残留することがある
-    if (document.activeElement && document.activeElement !== document.body) {
-      document.activeElement.blur();
-    }
-  }
-}
+/* ====== イベント登録（全て passive:false） ====== */
+// Touch（スタライスペン最重要）
+canvas.addEventListener('touchstart', onTouchStart, { passive:false });
+canvas.addEventListener('touchmove',  onTouchMove,  { passive:false });
+canvas.addEventListener('touchend',   onTouchEnd,   { passive:false });
+canvas.addEventListener('touchcancel',onTouchCancel,{ passive:false });
 
-/* ====== Pencilイベント（取りこぼしゼロ） ====== */
-canvas.addEventListener('pointerdown', (e)=>{
-  // ペンでキャンバスに触れた瞬間にフォームフォーカスを外す（Scribble抑止）
-  blurActiveIfPen(e);
-
-  e.preventDefault();
-  e.stopPropagation();
-
-  // 稀に pointerup が落ちた時の未確定ストローク掃除
-  if (drawing && currentStroke) endStroke();
-
-  // 直後の pointerdown を阻害しないため capture は取るが、up/cancelで必ず解放
-  try { canvas.setPointerCapture(e.pointerId); } catch {}
-
-  const pts = getCoalescedPoints(e);
-  const start = pts[pts.length-1];
-  beginStroke(tool, tool==='pen'?penColor:undefined, tool==='pen'?lineWidthPen:lineWidthHL, start);
-}, { passive:false });
-
-canvas.addEventListener('pointermove', (e)=>{
-  if (!drawing) return;
-  e.preventDefault();
-  if (tool!=='pen' && tool!=='hl') return;
-  const pts = getCoalescedPoints(e);
-  appendStrokePoints(pts);
-}, { passive:false });
-
-function releaseCaptureSafe(e){
-  try { if (canvas.hasPointerCapture?.(e.pointerId)) canvas.releasePointerCapture(e.pointerId); } catch {}
-}
-
-canvas.addEventListener('pointerup', (e)=>{
-  e.preventDefault(); e.stopPropagation();
-  if (drawing) endStroke();
-  releaseCaptureSafe(e);
-}, { passive:false });
-
-canvas.addEventListener('pointercancel', (e)=>{
-  e.preventDefault(); e.stopPropagation();
-  currentStroke=null; drawing=false;
-  releaseCaptureSafe(e);
-}, { passive:false });
-
-canvas.addEventListener('pointerleave', (e)=>{
-  if (drawing) { endStroke(); releaseCaptureSafe(e); }
-}, { passive:true });
-
-canvas.addEventListener('pointerout', (e)=>{
-  if (drawing) { endStroke(); releaseCaptureSafe(e); }
-}, { passive:true });
-
-canvas.addEventListener('lostpointercapture', (e)=>{
-  // 念のため状態をきれいに
-  if (drawing) endStroke();
-}, { passive:true });
-
-/* rawupdate（任意。さらに低遅延） */
-canvas.addEventListener('pointerrawupdate', (e)=>{
-  if (!drawing) return;
-  if (tool!=='pen' && tool!=='hl') return;
-  const pts = getCoalescedPoints(e);
-  appendStrokePoints(pts);
-}, { passive:true });
-
-/* ====== サイドバー：Pencilでフォームを触ってもフォーカスしない（デフォルトON） ====== */
-function interceptPenToForms(e){
-  if (!blockScribbleEl.checked) return;        // ユーザーがOFFにしたら触らない
-  if (e.pointerType !== 'pen') return;         // Pencilのみ対象
-  const tag = (e.target.tagName||'').toLowerCase();
-  if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) {
-    // フォームにフォーカスさせない→Scribble開始を阻止
-    if (e.cancelable) { e.preventDefault(); e.stopPropagation(); }
-  }
-}
-// サイドバー全域に付与（フォーム増えてもOK）
-sidebar.addEventListener('pointerdown', interceptPenToForms, { passive:false, capture:true });
+// Pointer/Mouse
+canvas.addEventListener('pointerdown', onPointerDown, { passive:false });
+canvas.addEventListener('pointermove', onPointerMove, { passive:false });
+canvas.addEventListener('pointerup',   onPointerUp,   { passive:false });
+canvas.addEventListener('pointercancel', onPointerCancel, { passive:false });
 
 /* ====== ツール＆色 ====== */
-const btns={ pen:document.getElementById('penBtn'), hl:document.getElementById('hlBtn'), sel:document.getElementById('selectBtn') };
+const btns={ pen:document.getElementById('penBtn'), hl:document.getElementById('hlBtn') };
 function setTool(next){
   tool=next;
   btns.pen.classList.toggle('active', tool==='pen');
   btns.hl .classList.toggle('active', tool==='hl');
-  btns.sel.classList.toggle('active', tool==='select');
 }
 btns.pen.onclick=()=>setTool('pen');
 btns.hl .onclick=()=>setTool('hl');
-btns.sel.onclick=()=>setTool('select');
 
 [['colorBlack','#111'],['colorRed','#e11d48'],['colorBlue','#2563eb'],['colorYel','#f59e0b']].forEach(([id,col])=>{
   const el=document.getElementById(id);
@@ -459,164 +287,14 @@ btns.sel.onclick=()=>setTool('select');
 
 /* ====== Undo / クリア ====== */
 document.getElementById('undoBtn').onclick=()=>{
-  const pg=currentPage();
   if (drawing && currentStroke){ currentStroke=null; drawing=false; return; }
-  if (pg.strokes.length>0){ pg.strokes.pop(); renderAll(); }
+  if (strokes.length>0){ strokes.pop(); renderAll(); }
 };
-document.getElementById('clearPenBtn').onclick=()=>{ currentPage().strokes.length=0; renderAll(); };
-
-/* ====== 罫線・ページ ====== */
-document.getElementById('toggleLinesBtn').onclick=()=>{ showLines=!showLines; renderAll(); };
-function updatePageIndicator(){ document.getElementById('pageIndicator').textContent = `${pageIndex+1} / ${pages.length}`; }
-document.getElementById('addPageBtn').onclick=()=>{ const t=(document.getElementById('newPageTemplate')||{}).value||'blank'; pages.splice(pageIndex+1,0, makeEmptyPage(t)); pageIndex++; updatePageIndicator(); renderAll(); };
-document.getElementById('prevPageBtn').onclick=()=>{ if (pageIndex>0){ pageIndex--; updatePageIndicator(); renderAll(); } };
-document.getElementById('nextPageBtn').onclick=()=>{ if (pageIndex<pages.length-1){ pageIndex++; updatePageIndicator(); renderAll(); } };
-document.getElementById('deletePageBtn').onclick=()=>{
-  if (pages.length===1){ alert('これ以上削除できません'); return; }
-  if (!confirm(`ページ${pageIndex+1}を削除しますか？`)) return;
-  pages.splice(pageIndex,1);
-  pageIndex = Math.max(0, Math.min(pageIndex, pages.length-1));
-  updatePageIndicator(); renderAll();
-};
-
-/* ====== 背景画像・QR・スタンプ ====== */
-document.getElementById('bgInput').addEventListener('change', (ev)=>{
-  const file = ev.target.files?.[0]; if (!file) return;
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  img.onload=()=>{
-    const baseW=img.naturalWidth||img.width||1, baseH=img.naturalHeight||img.height||1;
-    const r=canvas.getBoundingClientRect();
-    const maxW=r.width*0.8, maxH=r.height*0.8;
-    let scale=Math.min(maxW/baseW, maxH/baseH); if (!Number.isFinite(scale)||scale<=0) scale=1; scale=Math.min(scale,1)*0.9;
-    const w=Math.max(40, baseW*scale), h=Math.max(40, baseH*scale);
-    const center=centerOfCanvas();
-    const pg=currentPage();
-    pg.bg = { img, x:center.x-w/2, y:center.y-h/2, w, h, angle:0 };
-    URL.revokeObjectURL(url); ev.target.value='';
-    renderAll();
-  };
-  img.src=url;
-});
-
-document.getElementById('qrBtn').addEventListener('click', ()=>{
-  const data = prompt('QRにするURLまたはテキスト：', 'https://minami-dentalclinic.com'); if (!data) return;
-  const size=240, src=`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
-  const img=new Image(); img.crossOrigin='anonymous';
-  img.onload=()=>{
-    const initW=180, initH=180; const center=centerOfCanvas(); const pg=currentPage();
-    pg.items.push({ type:'qr', qrData:data, img, x:center.x-initW/2, y:center.y-initH/2, w:initW, h:initH, angle:0 });
-    renderAll();
-  };
-  img.onerror=()=>alert('QR画像の取得に失敗しました。');
-  img.src=src;
-});
-
-document.getElementById('implantBtn').addEventListener('click', ()=>{
-  const img = makeImplantStamp(); const initW=180, initH=320; const center=centerOfCanvas(); const pg=currentPage();
-  pg.items.push({ type:'implant', img, x:center.x-initW/2, y:center.y-initH/2, w:initW, h:initH, angle:0 });
-  renderAll();
-});
-document.getElementById('crownBtn').addEventListener('click', ()=>{
-  const img = makeCrownStamp(); const initW=260, initH=220; const center=centerOfCanvas(); const pg=currentPage();
-  pg.items.push({ type:'crown', img, x:center.x-initW/2, y:center.y-initH/2, w:initW, h:initH, angle:0 });
-  renderAll();
-});
-function makeImplantStamp(){
-  const w=180,h=320,off=document.createElement('canvas'); off.width=w; off.height=h; const g=off.getContext('2d');
-  g.fillStyle='#e5e7eb'; g.strokeStyle='#9ca3af'; g.lineWidth=2; g.beginPath(); g.roundRect(50,20,80,50,10); g.fill(); g.stroke();
-  g.fillStyle='#d1d5db'; g.fillRect(75,70,30,18);
-  g.fillStyle='#cbd5e1'; g.strokeStyle='#94a3b8'; g.lineWidth=2; g.beginPath(); g.roundRect(60,88,60,180,20); g.fill(); g.stroke();
-  g.strokeStyle='#94a3b8'; g.lineWidth=2; for (let y=100;y<250;y+=14){ g.beginPath(); g.moveTo(62,y); g.lineTo(118,y+16); g.stroke(); }
-  g.fillStyle='#cbd5e1'; g.beginPath(); g.moveTo(60,268); g.lineTo(120,268); g.lineTo(90,300); g.closePath(); g.fill(); g.stroke();
-  g.fillStyle='rgba(0,0,0,0.05)'; g.beginPath(); g.ellipse(90,310,45,8,0,0,Math.PI*2); g.fill();
-  const img=new Image(); img.src=off.toDataURL('image/png'); return img;
-}
-function makeCrownStamp(){
-  const w=260,h=220,off=document.createElement('canvas'); off.width=w; off.height=h; const g=off.getContext('2d');
-  g.fillStyle='#ffffff'; g.strokeStyle='#94a3b8'; g.lineWidth=2;
-  g.beginPath();
-  g.moveTo(40,140); g.bezierCurveTo(40,90,70,60,110,60);
-  g.bezierCurveTo(125,35,135,30,150,60);
-  g.bezierCurveTo(190,60,220,90,220,140);
-  g.bezierCurveTo(220,175,200,190,130,190);
-  g.bezierCurveTo(70,190,40,175,40,140);
-  g.closePath(); g.fill(); g.stroke();
-  g.fillStyle='rgba(255,255,255,0.7)'; g.beginPath(); g.ellipse(120,95,60,20,-0.4,0,Math.PI*2); g.fill();
-  g.strokeStyle='#cbd5e1'; g.lineWidth=1.5; g.beginPath(); g.moveTo(90,120); g.quadraticCurveTo(130,110,170,120); g.moveTo(110,140); g.quadraticCurveTo(130,135,150,140); g.stroke();
-  g.fillStyle='rgba(0,0,0,0.06)'; g.beginPath(); g.ellipse(130,205,70,10,0,0,Math.PI*2); g.fill();
-  const img=new Image(); img.src=off.toDataURL('image/png'); return img;
-}
-
-/* ====== PDF保存 ====== */
-document.getElementById('saveBtn').onclick=async()=>{
-  const jspdf = window.jspdf;
-  if (!jspdf || !jspdf.jsPDF){ alert('PDFライブラリ読み込みに失敗しました'); return; }
-  const r = canvas.getBoundingClientRect(); if (!r.width || !r.height){ alert('キャンバスサイズ取得失敗'); return; }
-  const orientation = r.width >= r.height ? 'landscape' : 'portrait';
-  const pdf = new jspdf.jsPDF({ orientation, unit:'px', format:[r.width, r.height] });
-
-  const off = document.createElement('canvas'); off.width=r.width; off.height=r.height; const g=off.getContext('2d');
-  const prevIndex=pageIndex;
-  try{
-    for (let i=0;i<pages.length;i++){
-      pageIndex=i; renderAll();
-      g.clearRect(0,0,off.width,off.height);
-      g.drawImage(canvas, 0,0, off.width, off.height);
-      const dataUrl=off.toDataURL('image/png');
-      if (i>0) pdf.addPage([r.width, r.height], orientation);
-      pdf.addImage(dataUrl, 'PNG', 0,0, r.width, r.height);
-    }
-    const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-    pdf.save(`consult_pages_${ts}.pdf`);
-  }finally{ pageIndex=prevIndex; renderAll(); }
-};
-
-/* ====== プリセットQR ====== */
-const PRESET_KEY='consult_qr_presets_v2';
-const DEFAULT_PRESETS=[
- {label:'補綴物', data:'https://minami-dentalclinic.com/クラウンによる歯冠修復治療/'},
- {label:'CR', data:'https://minami-dentalclinic.com/コンポジットレジン修復（cr修復%EF%BC%8Fcr充填）/'},
- {label:'インレー', data:'https://minami-dentalclinic.com/インレー修復/'},
- {label:'ブリッジ', data:'https://minami-dentalclinic.com/ブリッジ/'},
- {label:'歯周治療', data:'https://minami-dentalclinic.com/歯周病治療/'},
- {label:'抜髄治療', data:'https://minami-dentalclinic.com/抜髄治療/'},
- {label:'感染根管治療', data:'https://minami-dentalclinic.com/感染根管治療/'},
- {label:'総義歯', data:'https://minami-dentalclinic.com/総義歯/'},
- {label:'部分床義歯', data:'https://minami-dentalclinic.com/部分床義歯/'},
- {label:'インプラント', data:'https://minami-dentalclinic.com/インプラント/'},
- {label:'中間欠損', data:'https://minami-dentalclinic.com/１歯欠損で両隣に歯がある場合の治療法（インプ/'},
- {label:'7番欠損', data:'https://minami-dentalclinic.com/７番欠損（６番は残存）時の治療法/'}
-];
-function loadPresets(){ const raw=localStorage.getItem(PRESET_KEY); let p=[]; if (raw){ try{ p=JSON.parse(raw)||[]; }catch{} } if (p.length===0){ p=DEFAULT_PRESETS.slice(); localStorage.setItem(PRESET_KEY, JSON.stringify(p)); } return p; }
-function refreshPresetSelect(){
-  const sel=document.getElementById('qrPresetSelect'); const presets=loadPresets();
-  sel.innerHTML=''; presets.forEach((p,i)=>{ const opt=document.createElement('option'); opt.value=String(i); opt.textContent=p.label; sel.appendChild(opt); });
-}
-document.getElementById('placePresetBtn').onclick=()=>{
-  const i=parseInt(document.getElementById('qrPresetSelect').value,10); const list=loadPresets();
-  if (isNaN(i)||!list[i]){ alert('候補を選択してください'); return; }
-  const data=list[i].data;
-  const size=240, src=`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
-  const img=new Image(); img.crossOrigin='anonymous';
-  img.onload=()=>{ const initW=180, initH=180; const center=centerOfCanvas(); const pg=currentPage(); pg.items.push({ type:'qr', qrData:data, img, x:center.x-initW/2, y:center.y-initH/2, w:initW, h:initH, angle:0 }); renderAll(); };
-  img.onerror=()=>alert('QR画像の取得に失敗しました。');
-  img.src=src;
-};
-document.getElementById('addPresetBtn').onclick=()=>{
-  const label=document.getElementById('presetLabel')?.value?.trim();
-  const data =document.getElementById('presetData')?.value?.trim();
-  if (!label||!data){ alert('ラベルとURL/テキストを入力してください'); return; }
-  const list=loadPresets(); list.push({label,data}); localStorage.setItem(PRESET_KEY, JSON.stringify(list));
-  document.getElementById('presetLabel').value=''; document.getElementById('presetData').value='';
-  refreshPresetSelect(); alert('候補を追加しました');
-};
+document.getElementById('clearPenBtn').onclick=()=>{ strokes.length=0; renderAll(); };
 
 /* ====== 初期化 ====== */
 function init(){
-  refreshPresetSelect();
   setCanvasSize();
-  updatePageIndicator();
   renderAll();
 }
 init();
