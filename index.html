@@ -39,19 +39,14 @@
 
   /* 見積書エディタ */
   #estimateEditor { display:none; }
-  #estimateEditor h2 { display:flex; justify-content:space-between; align-items:center; }
   #estimateRows { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
   .estimate-row {
     display:grid; gap:10px; grid-template-columns:repeat(2, minmax(0, 1fr));
     align-items:flex-start; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f9fafb;
   }
-  .estimate-row select, .estimate-row input { padding:6px 8px; }
-  .estimate-row select, .estimate-row input, .estimate-row textarea { width:100%; }
   .estimate-row .estimate-tooth { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:6px; grid-column:1 / -1; }
   .estimate-row .estimate-note { grid-column:1 / -1; min-height:52px; }
-  @media (max-width: 600px) {
-    .estimate-row { grid-template-columns:1fr; }
-  }
+  @media (max-width: 600px) { .estimate-row { grid-template-columns:1fr; } }
   .mini-btn { padding:6px 10px; font-size:12px; border-radius:8px; }
   .estimate-summary { margin-top:14px; padding-top:10px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
   .estimate-loan { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
@@ -59,17 +54,16 @@
 
   /* 右側：キャンバスパネル */
   #main { flex:1; display:flex; flex-direction:column; min-width:0; position:relative; overflow:hidden; }
-  #canvasPane {
-    flex:1; position:relative; margin:12px; border:1px solid var(--line); border-radius:12px; background:#fff;
-  }
+  #canvasPane { flex:1; position:relative; margin:12px; border:1px solid var(--line); border-radius:12px; background:#fff; }
 
   /* 3レイヤーCanvas */
   .layer {
-    position:absolute; inset:0; width:100%; height:100%; display:block; background:#fff; touch-action:none;
+    position:absolute; inset:0; width:100%; height:100%;
+    display:block; background:#fff; touch-action:none;
   }
   #scene { z-index: 1; }
   #ink   { z-index: 2; background:transparent; }
-  #ui    { z-index: 3; background:transparent; }
+  #ui    { z-index: 3; background:transparent; pointer-events:none; } /* ←既定はイベント無効 */
 
   #hint {
     position:absolute; right:10px; bottom:10px; background:#0007; color:#fff; font-size:12px; padding:6px 8px; border-radius:8px; z-index:4;
@@ -87,7 +81,6 @@
 <div id="wrap">
   <!-- 左サイドバー -->
   <aside id="sidebar">
-    <!-- ページ -->
     <div class="section">
       <h2>ページ</h2>
       <div class="row">
@@ -108,7 +101,6 @@
       <div class="muted">※ ページごとに背景・スタンプ・線を保持します</div>
     </div>
 
-    <!-- 患者情報 -->
     <div class="section">
       <h2>患者情報</h2>
       <div class="row"><input id="ptName" class="full" type="text" placeholder="患者名"></div>
@@ -116,7 +108,6 @@
       <div class="muted">左上に小さく表示（保存にも反映）</div>
     </div>
 
-    <!-- 見積書 -->
     <div class="section" id="estimateEditor">
       <h2>見積書</h2>
       <div class="muted">見積書ページを選択すると編集できます</div>
@@ -136,7 +127,6 @@
       </div>
     </div>
 
-    <!-- 保存・共有 -->
     <div class="section">
       <h2>患者データ保存 / 共有</h2>
       <div class="row"><button id="exportPatientBtn" class="full">患者データを書き出し</button></div>
@@ -144,7 +134,6 @@
       <div class="muted">※ 保存したJSONをAirDropなどで共有すると他のiPadでも続きを開けます</div>
     </div>
 
-    <!-- 描画 -->
     <div class="section">
       <h2>描画ツール</h2>
       <div class="row">
@@ -165,7 +154,6 @@
       </div>
     </div>
 
-    <!-- 画像・QR・スタンプ -->
     <div class="section">
       <h2>画像・QR・既定スタンプ</h2>
       <label class="as-btn"><input id="bgInput" type="file" accept="image/*">背景画像を読み込む</label>
@@ -177,7 +165,6 @@
       <button id="clearAllBtn" class="full" style="margin-top:8px" title="現在ページを全消去">現在ページ 全消去</button>
     </div>
 
-    <!-- 説明QRプリセット -->
     <div class="section">
       <h2>説明QR（プリセット）</h2>
       <div class="row"><select id="qrPresetSelect" class="full"></select></div>
@@ -188,7 +175,6 @@
       <div class="muted">※ 候補はブラウザに保存され、次回も表示されます</div>
     </div>
 
-    <!-- 表示・出力 -->
     <div class="section">
       <h2>表示 / 出力</h2>
       <div class="row">
@@ -312,12 +298,10 @@ function setCanvasSize(){
       cv.width = W; cv.height = H;
     }
   });
-  // スケール（座標はCSSピクセル）
   sctx.setTransform(dpr,0,0,dpr,0,0);
   ictx.setTransform(dpr,0,0,dpr,0,0);
   uctx.setTransform(dpr,0,0,dpr,0,0);
 
-  // 再描画
   renderScene();
   redrawInkFromHistory(currentPage());
   renderUI();
@@ -341,31 +325,17 @@ function renderScene(){
   const pg = currentPage();
   const r = scene.getBoundingClientRect();
 
-  // 罫線
   if (showLines && pg.kind==='blank'){
     sctx.save();
     sctx.strokeStyle = '#e5e7eb'; sctx.lineWidth = 1;
-    const startY = 0;
     sctx.beginPath();
-    for (let y = startY; y < r.height; y += LINE_STEP){
-      sctx.moveTo(0, y); sctx.lineTo(r.width, y);
-    }
+    for (let y = 0; y < r.height; y += LINE_STEP){ sctx.moveTo(0, y); sctx.lineTo(r.width, y); }
     sctx.stroke();
     sctx.restore();
   }
-
-  // 背景
   if (pg.bg) drawPlacedImage(sctx, pg.bg);
-
-  // 見積ページ
-  if (pg.kind==='estimate'){
-    drawEstimatePage(sctx, pg);
-  }
-
-  // アイテム
+  if (pg.kind==='estimate'){ drawEstimatePage(sctx, pg); }
   for (const it of pg.items) drawPlacedImage(sctx, it);
-
-  // 患者情報
   drawPatientInfo(sctx);
 }
 
@@ -385,15 +355,8 @@ function drawStrokeOnInk(stroke){
   if (!stroke.points || stroke.points.length<2) return;
   ictx.save();
   ictx.lineCap='round'; ictx.lineJoin='round';
-  if (stroke.mode==='pen'){
-    ictx.globalAlpha=1;
-    ictx.strokeStyle=stroke.color||'#111';
-    ictx.lineWidth=stroke.width||lineWidthPen;
-  }else{
-    ictx.globalAlpha=0.28;
-    ictx.strokeStyle='#ffd600';
-    ictx.lineWidth=stroke.width||lineWidthHL;
-  }
+  if (stroke.mode==='pen'){ ictx.globalAlpha=1; ictx.strokeStyle=stroke.color||'#111'; ictx.lineWidth=stroke.width||lineWidthPen; }
+  else { ictx.globalAlpha=0.28; ictx.strokeStyle='#ffd600'; ictx.lineWidth=stroke.width||lineWidthHL; }
   ictx.beginPath();
   const pts = stroke.points;
   ictx.moveTo(pts[0].x, pts[0].y);
@@ -429,7 +392,7 @@ function drawSelectionHandles(ctx, it){
   ctx.setLineDash([]);
   const r = HANDLE_SIZE/2;
   ctx.fillStyle = '#2563eb';
-  ctx.fillRect(it.w/2 - r, it.h/2 - r, HANDLE_SIZE, HANDLE_SIZE); // リサイズ
+  ctx.fillRect(it.w/2 - r, it.h/2 - r, HANDLE_SIZE, HANDLE_SIZE);
   const rotY = -it.h/2 - ROT_HANDLE_OFFSET;
   ctx.beginPath(); ctx.moveTo(0, -it.h/2); ctx.lineTo(0, rotY); ctx.stroke();
   ctx.beginPath(); ctx.arc(0, rotY, HANDLE_SIZE*0.6, 0, Math.PI*2); ctx.fill();
@@ -447,7 +410,7 @@ function drawPatientInfo(ctx){
   ctx.restore();
 }
 
-/* ========= 見積書レンダリング ========= */
+/* ========= 見積書レンダリング & ロジック ========= */
 function drawEstimatePage(ctx, pg){
   if (!pg.estimate) pg.estimate = makeEstimateData();
   const est = pg.estimate;
@@ -470,9 +433,7 @@ function drawEstimatePage(ctx, pg){
   const tableHeight = headerHeight + rowHeight*rowCount;
   const tableTop = marginY;
   const tableLeft = marginX;
-
-  const columnStarts = [];
-  let runningX = tableLeft;
+  const columnStarts = []; let runningX = tableLeft;
   for (let i=0;i<columnWidths.length;i++){ columnStarts.push(runningX); runningX += columnWidths[i]; }
 
   ctx.save();
@@ -484,7 +445,6 @@ function drawEstimatePage(ctx, pg){
   ctx.strokeStyle='#9ca3af'; ctx.lineWidth=1;
   ctx.strokeRect(tableLeft, tableTop, availableWidth, tableHeight);
 
-  // 縦線
   ctx.beginPath();
   for (let i=1;i<columnWidths.length;i++){
     const x = tableLeft + columnWidths.slice(0,i).reduce((s,v)=>s+v,0);
@@ -492,7 +452,6 @@ function drawEstimatePage(ctx, pg){
   }
   ctx.stroke();
 
-  // 横線
   ctx.beginPath();
   for (let i=1;i<=rowCount;i++){
     const y = tableTop + headerHeight + rowHeight*(i-1);
@@ -534,8 +493,6 @@ function drawEstimatePage(ctx, pg){
   ctx.fillText(`※ 年利 ${interestText}% で試算`, tableLeft, summaryTop + 48);
   ctx.restore();
 }
-
-/* ========= 見積関連ロジック ========= */
 function normalizeEstimateRow(row){
   if (!row || typeof row!=='object') return makeEstimateRow();
   row.tooth     = typeof row.tooth==='string' ? row.tooth : '';
@@ -879,7 +836,7 @@ function placeQR(data){
 
 document.getElementById('implantBtn').addEventListener('click', ()=>{
   const img=makeImplantStamp(); const initW=180, initH=320; const center=centerOfCanvas(); const pg=currentPage();
-  pg.items.push({ type:'implant', img, x:center.x-initW/2, y:center.y-initH/2, w:initW, h:initH, angle:0 });
+  pg.items.push({ type:'implant', img, x:center.x-initW/2, y=center.y-initH/2, w:initW, h:initH, angle:0 });
   selectedIdx=pg.items.length-1; bgSelected=false; renderScene(); renderUI();
 });
 document.getElementById('crownBtn').addEventListener('click', ()=>{
@@ -888,7 +845,7 @@ document.getElementById('crownBtn').addEventListener('click', ()=>{
   selectedIdx=pg.items.length-1; bgSelected=false; renderScene(); renderUI();
 });
 
-/* 簡易スタンプ生成（既存のまま） */
+/* 簡易スタンプ生成 */
 function makeImplantStamp(){
   const w=180,h=320,off=document.createElement('canvas'); off.width=w; off.height=h; const g=off.getContext('2d');
   g.clearRect(0,0,w,h);
@@ -917,7 +874,7 @@ function makeCrownStamp(){
   const img=new Image(); img.src=off.toDataURL('image/png'); return img;
 }
 
-/* ========= 当たり判定（回転対応） ========= */
+/* ========= 当たり判定 ========= */
 function worldToLocal(pt, it){
   const {cx, cy}=getItemCenter(it);
   const a=-(it.angle||0);
@@ -952,10 +909,10 @@ function hitTestBackground(pt){
   return {kind:'none', idx:-1};
 }
 
-/* ========= 入力（超低レイテンシ：inkへ逐次描画） ========= */
+/* ========= 入力（Ink：低レイテンシ描画） ========= */
 const pointers = new Map();
-let dragState=null; // 選択操作
-let drawing=false;  // ペン描画中
+let dragState=null;
+let drawing=false;
 let currentStroke=null; // {mode,color,width,points:[]}
 
 function getEventPoint(e){
@@ -982,13 +939,15 @@ function angleTo(it, ptWorld){
   });
 });
 
-/* ツール切替 */
+/* ツール切替（ここでUIのpointer-eventsを切替） */
 const btns={ pen:document.getElementById('penBtn'), hl:document.getElementById('hlBtn'), sel:document.getElementById('selectBtn') };
 function setTool(next){
   tool=next;
   btns.pen.classList.toggle('active', tool==='pen');
   btns.hl .classList.toggle('active', tool==='hl');
   btns.sel.classList.toggle('active', tool==='select');
+  // UIレイヤがペン操作を邪魔しないように
+  ui.style.pointerEvents = (tool==='select') ? 'auto' : 'none';
   if (tool!=='select'){ selectedIdx=-1; bgSelected=false; dragState=null; renderUI(); }
 }
 btns.pen.onclick=()=>setTool('pen');
@@ -1001,38 +960,24 @@ document.getElementById('toggleLinesBtn').onclick=()=>{ showLines=!showLines; re
 /* Undo / クリア / 全消去 */
 document.getElementById('undoBtn').onclick=()=>{
   const pg=currentPage();
-  if (drawing && currentStroke){
-    // いま描いている途中を破棄
-    currentStroke=null; drawing=false;
-    renderUI();
-    return;
-  }
-  if (pg.strokes.length>0){
-    pg.strokes.pop();
-    redrawInkFromHistory(pg);
-    return;
-  }
-  if (pg.items.length>0){
-    pg.items.pop(); selectedIdx=-1; bgSelected=false; renderScene(); renderUI(); return;
-  }
+  if (drawing && currentStroke){ currentStroke=null; drawing=false; renderUI(); return; }
+  if (pg.strokes.length>0){ pg.strokes.pop(); redrawInkFromHistory(pg); return; }
+  if (pg.items.length>0){ pg.items.pop(); selectedIdx=-1; bgSelected=false; renderScene(); renderUI(); return; }
 };
-document.getElementById('clearPenBtn').onclick=()=>{
-  const pg=currentPage(); pg.strokes.length=0; redrawInkFromHistory(pg);
-};
+document.getElementById('clearPenBtn').onclick=()=>{ const pg=currentPage(); pg.strokes.length=0; redrawInkFromHistory(pg); };
 document.getElementById('clearAllBtn').onclick=()=>{
   if (!confirm('現在ページの背景/スタンプ/描画をすべて消去します。')) return;
   const pg=currentPage(); pg.strokes.length=0; pg.items.length=0; pg.bg=null; selectedIdx=-1; bgSelected=false;
   redrawInkFromHistory(pg); renderScene(); renderUI();
 };
 
-/* PDF保存（scene + ink を合成。UIは除外） */
+/* PDF保存（scene + ink 合成。UIは除外） */
 document.getElementById('saveBtn').onclick=async()=>{
   const jspdf=window.jspdf; if (!jspdf||!jspdf.jsPDF){ alert('PDFライブラリ読み込み失敗'); return; }
   const rect=scene.getBoundingClientRect(); if (!rect.width||!rect.height){ alert('キャンバスサイズ取得失敗'); return; }
   const orientation = rect.width >= rect.height ? 'landscape' : 'portrait';
   const pdf=new jspdf.jsPDF({ orientation, unit:'px', format:[rect.width, rect.height] });
 
-  // 合成用一時Canvas
   const off=document.createElement('canvas'); off.width=rect.width; off.height=rect.height; const g=off.getContext('2d');
   const timestamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
 
@@ -1041,11 +986,9 @@ document.getElementById('saveBtn').onclick=async()=>{
     for (let i=0;i<pages.length;i++){
       pageIndex=i;
       renderScene(); redrawInkFromHistory(currentPage()); renderUI();
-      // scene
       g.clearRect(0,0,off.width,off.height);
       g.drawImage(scene, 0,0, off.width, off.height);
-      // ink
-      g.drawImage(ink, 0,0, off.width, off.height);
+      g.drawImage(ink,   0,0, off.width, off.height);
       const dataUrl=off.toDataURL('image/png');
       if (i>0) pdf.addPage([rect.width, rect.height], orientation);
       pdf.addImage(dataUrl, 'PNG', 0,0, rect.width, rect.height);
@@ -1108,7 +1051,7 @@ document.getElementById('deletePageBtn').onclick=()=>{
 };
 function updatePageIndicator(){ document.getElementById('pageIndicator').textContent = `${pageIndex+1} / ${pages.length}`; }
 
-/* ========= QRプリセット（localStorage） ========= */
+/* ========= QRプリセット ========= */
 const PRESET_KEY='consult_qr_presets_v2';
 const DEFAULT_PRESETS=[
  {label:'補綴物', data:'https://minami-dentalclinic.com/クラウンによる歯冠修復治療/'},
@@ -1149,30 +1092,29 @@ document.getElementById('addPresetBtn').onclick=()=>{
   refreshPresetSelect(); alert('候補を追加しました');
 };
 
-/* ========= 選択ツール：UIレイヤで扱う ========= */
-function screenToLogical(pt){ return pt; } // ズーム固定なので同一
+/* ========= 選択ツール（UIレイヤ） ========= */
+function screenToLogical(pt){ return pt; } // ズーム固定
 
 ui.addEventListener('pointerdown',(e)=>{
   if (tool!=='select') return;
   ui.setPointerCapture?.(e.pointerId);
   e.preventDefault();
-  const pt=getEventPoint(e); pointers.set(e.pointerId, pt);
-  const L=screenToLogical(pt);
+  const pt=getEventPoint(e); const L=screenToLogical(pt);
   const pg=currentPage();
   const hit=hitTestItem(L);
   if (hit.idx>=0){
     selectedIdx=hit.idx; bgSelected=false; const it=pg.items[selectedIdx];
     if (hit.kind==='rotate'){ dragState={ target:'item', kind:'rotate', idx:selectedIdx, start:L, itemStart:Object.assign({}, it), startAngle:angleTo(it,L) }; }
-    else if (hit.kind==='resize'){ const itemCopy=Object.assign({},it); dragState={ target:'item', kind:'resize', idx:selectedIdx, start:L, itemStart:itemCopy, handleStartLocal:worldToLocal(L,itemCopy) }; }
-    else { dragState={ target:'item', kind:'move', idx:selectedIdx, start:L, itemStart:Object.assign({}, it) }; }
+    else if (hit.kind==='resize'){ const itemCopy=Object.assign({},it); dragState={ target:'item', kind:'resize', idx:selectedIdx, start=L, itemStart=itemCopy, handleStartLocal:worldToLocal(L,itemCopy) }; }
+    else { dragState={ target:'item', kind:'move', idx:selectedIdx, start=L, itemStart:Object.assign({}, it) }; }
   }else{
     const bgh=hitTestBackground(L);
     if (bgh.kind!=='none'){
       selectedIdx=-1; bgSelected=true; const bg=pg.bg;
       if (!bg){ dragState=null; }
-      else if (bgh.kind==='rotate'){ dragState={ target:'bg', kind:'rotate', idx:-1, start:L, itemStart:Object.assign({}, bg), startAngle:angleTo(bg,L) }; }
-      else if (bgh.kind==='resize'){ const bgCopy=Object.assign({},bg); dragState={ target:'bg', kind:'resize', idx:-1, start:L, itemStart:bgCopy, handleStartLocal:worldToLocal(L,bgCopy) }; }
-      else { dragState={ target:'bg', kind:'move', idx:-1, start:L, itemStart:Object.assign({}, bg) }; }
+      else if (bgh.kind==='rotate'){ dragState={ target:'bg', kind:'rotate', idx:-1, start=L, itemStart:Object.assign({}, bg), startAngle:angleTo(bg,L) }; }
+      else if (bgh.kind==='resize'){ const bgCopy=Object.assign({},bg); dragState={ target:'bg', kind:'resize', idx:-1, start=L, itemStart=bgCopy, handleStartLocal:worldToLocal(L,bgCopy) }; }
+      else { dragState={ target:'bg', kind:'move', idx:-1, start=L, itemStart:Object.assign({}, bg) }; }
     }else{
       selectedIdx=-1; bgSelected=false; dragState=null;
     }
@@ -1180,11 +1122,9 @@ ui.addEventListener('pointerdown',(e)=>{
   renderUI();
 });
 ui.addEventListener('pointermove',(e)=>{
-  if (tool!=='select' || !pointers.has(e.pointerId)) return;
+  if (tool!=='select' || !dragState) return;
   e.preventDefault();
-  const pt=getEventPoint(e); pointers.set(e.pointerId, pt);
-  if (!dragState) return;
-  const L=screenToLogical(pt); const pg=currentPage();
+  const pt=getEventPoint(e); const L=screenToLogical(pt); const pg=currentPage();
   const target = dragState.target==='bg' ? pg.bg : pg.items[dragState.idx];
   if (!target) return;
   if (dragState.kind==='move'){
@@ -1208,17 +1148,10 @@ ui.addEventListener('pointermove',(e)=>{
   }
   renderScene(); renderUI();
 });
-ui.addEventListener('pointerup',(e)=>{
-  if (tool!=='select') return;
-  e.preventDefault();
-  pointers.delete(e.pointerId); dragState=null; renderUI();
-});
-ui.addEventListener('pointercancel',(e)=>{
-  if (tool!=='select') return;
-  e.preventDefault(); pointers.delete(e.pointerId); dragState=null; renderUI();
-});
+ui.addEventListener('pointerup',(e)=>{ if (tool!=='select') return; e.preventDefault(); dragState=null; renderUI(); });
+ui.addEventListener('pointercancel',(e)=>{ if (tool!=='select') return; e.preventDefault(); dragState=null; renderUI(); });
 
-/* ========= ペン/蛍光：Inkレイヤで最速描画 ========= */
+/* ========= ペン/蛍光：Inkレイヤ ========= */
 function beginStroke(mode, color, width, startPt){
   currentStroke = { mode, color, width, points:[startPt] };
   drawing = true;
@@ -1226,7 +1159,6 @@ function beginStroke(mode, color, width, startPt){
 function appendStrokePoints(pts){
   if (!currentStroke || pts.length===0) return;
   const arr=currentStroke.points;
-  // インクリメンタル描画：最後の点から新しい各点へ
   ictx.save();
   ictx.lineCap='round'; ictx.lineJoin='round';
   if (currentStroke.mode==='pen'){ ictx.globalAlpha=1; ictx.strokeStyle=currentStroke.color||'#111'; ictx.lineWidth=currentStroke.width||lineWidthPen; }
@@ -1234,10 +1166,7 @@ function appendStrokePoints(pts){
   let prev = arr[arr.length-1];
   ictx.beginPath();
   ictx.moveTo(prev.x, prev.y);
-  for (const p of pts){
-    arr.push(p);
-    ictx.lineTo(p.x, p.y);
-  }
+  for (const p of pts){ arr.push(p); ictx.lineTo(p.x, p.y); }
   ictx.stroke();
   ictx.restore();
 }
@@ -1253,37 +1182,31 @@ function handlePointerDownInk(e){
   e.preventDefault();
   const pts = collectCoalescedPoints(e);
   const start = pts[pts.length-1];
-  pointers.set(e.pointerId, start);
   beginStroke(tool, tool==='pen'?penColor:undefined, tool==='pen'?lineWidthPen:lineWidthHL, start);
 }
 function handlePointerMoveInk(e){
-  if (!pointers.has(e.pointerId)) return;
+  if (tool!=='pen' && tool!=='hl') return;
   e.preventDefault();
   const pts = collectCoalescedPoints(e);
-  if (tool==='pen' || tool==='hl'){
-    appendStrokePoints(pts);
-  }
+  if (drawing){ appendStrokePoints(pts); }
 }
 function handlePointerUpInk(e){
-  e.preventDefault();
-  if (tool==='pen' || tool==='hl'){ endStroke(); }
-  pointers.delete(e.pointerId);
+  if (tool!=='pen' && tool!=='hl') return;
+  e.preventDefault(); if (drawing) endStroke();
 }
 function handlePointerCancelInk(e){
   e.preventDefault();
-  currentStroke=null; drawing=false; pointers.delete(e.pointerId);
+  currentStroke=null; drawing=false;
 }
 
-// 標準 pointer イベント
 ink.addEventListener('pointerdown', handlePointerDownInk, {passive:false});
 ink.addEventListener('pointermove', handlePointerMoveInk, {passive:false});
 ink.addEventListener('pointerup',   handlePointerUpInk,   {passive:false});
 ink.addEventListener('pointercancel',handlePointerCancelInk,{passive:false});
 
-// 低レイテンシ（対応環境） pointerrawupdate
+/* 低レイテンシ（対応環境） pointerrawupdate */
 ink.addEventListener('pointerrawupdate', (e)=>{
-  // 生イベントでも同じ処理（coalescedも併用）
-  if (!pointers.has(e.pointerId)) return;
+  if (!drawing) return;
   if (tool!=='pen' && tool!=='hl') return;
   const pts = collectCoalescedPoints(e);
   appendStrokePoints(pts);
@@ -1295,6 +1218,8 @@ function refreshAll(){
   setCanvasSize();
   refreshEstimateEditor();
   updatePageIndicator();
+  // 念のため、初期はペン描画優先でUIはイベント無効
+  ui.style.pointerEvents = 'none';
 }
 refreshAll();
 
