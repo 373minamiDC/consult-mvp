@@ -1400,6 +1400,24 @@ function twoFingerInfo(){ const arr=[...pointers.values()]; const p0=arr[0],p1=a
   return { mid:{x:(p0.x+p1.x)/2, y:(p0.y+p1.y)/2}, dist:Math.hypot(p1.x-p0.x, p1.y-p0.y) }; }
 function angleTo(it, ptWorld){ const {cx,cy}=getItemCenter(it); return Math.atan2(ptWorld.y-cy, ptWorld.x-cx); }
 
+function collectPointerPoints(e){
+  const rect = canvas.getBoundingClientRect();
+  let events = null;
+  if (typeof e.getCoalescedEvents === 'function'){
+    try {
+      events = e.getCoalescedEvents();
+    } catch (err) {
+      events = null;
+    }
+  }
+  if (events && events.length){
+    const pts = events.map(ev=>({ x: ev.clientX - rect.left, y: ev.clientY - rect.top }));
+    return { points: pts, last: pts[pts.length-1] };
+  }
+  const single = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  return { points: [single], last: single };
+}
+
 function applyPinchTransform(mid, dist){
   if (!pinchStart) return false;
   const base = pinchStart.view;
@@ -1548,7 +1566,8 @@ canvas.addEventListener('pointerdown',(e)=>{
 canvas.addEventListener('pointermove',(e)=>{
   if (!pointers.has(e.pointerId)) return;
   e.preventDefault();
-  pointers.set(e.pointerId, getEventPoint(e));
+  const { points, last } = collectPointerPoints(e);
+  if (last) pointers.set(e.pointerId, last);
   const pg=currentPage();
 
   if (tool==='select'){
@@ -1592,9 +1611,11 @@ canvas.addEventListener('pointermove',(e)=>{
   if (pointers.size===1){
     const entry=peekStroke(e.pointerId);
     if (entry){
-      const logical = screenToLogical(pointers.get(e.pointerId));
-      entry.stroke.points.push(logical);
-      entry.lastPoint = logical;
+      for (const pt of points){
+        const logical = screenToLogical(pt);
+        entry.stroke.points.push(logical);
+        entry.lastPoint = logical;
+      }
       requestRedraw();
     }
   } else if (pointers.size===2){
