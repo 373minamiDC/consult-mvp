@@ -212,7 +212,7 @@ gap:6px; }
       <label class="as-btn" style="margin-top:6px"><input id="imageInput" type="file" accept="image/*" multiple>画像を追加</label>
       <div class="row" style="margin-top:8px"><select id="templateImageSelect" class="full"></select></div>
       <div class="row" style="margin-top:6px"><button id="placeTemplateImageBtn" class="full">テンプレ画像を配置</button></div>
-      <div class="muted">※ template-images フォルダのファイル名をプルダウンに表示します</div>
+      <div class="muted">※ template-images フォルダに追加した JPG / JPEG / JPGE / PNG ファイルがここに表示されます</div>
       <button id="qrBtn" class="full" title="URL/テキストを入力してQR配置">自由入力のQRを追加</button>
       <div class="row" style="margin-top:8px">
         <button id="implantBtn" class="full" title="インプラントスタンプ">インプラント</button>
@@ -272,17 +272,9 @@ const addTextBtn = document.getElementById('addTextBtn');
 const templateImageSelectEl = document.getElementById('templateImageSelect');
 const placeTemplateImageBtn = document.getElementById('placeTemplateImageBtn');
 
-const DEFAULT_TEMPLATE_IMAGES = [
-  'caries_periodontal.svg',
-  'bridge_implant_denture.svg',
-  'bridge_closeup.svg',
-  'cad_cam_peek.svg',
-  'cavity_preparation.svg',
-  'ceramic_teeth.svg',
-  'emax_press.svg',
-  'full_denture.svg'
-];
+const DEFAULT_TEMPLATE_IMAGES = [];
 const templateImages = [];
+const TEMPLATE_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.jpge', '.png'];
 
 const measureCanvas = document.createElement('canvas');
 const measureCtx = measureCanvas.getContext('2d');
@@ -1570,25 +1562,91 @@ function refreshTemplateImageSelect(){
   if (placeTemplateImageBtn){ placeTemplateImageBtn.disabled = templateImages.length===0; }
 }
 
+function normalizeTemplateImageName(name){
+  if (typeof name !== 'string') return null;
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  const sanitized = trimmed.replace(/\\/g, '/').split('/').filter(Boolean).pop();
+  if (!sanitized || sanitized.includes('..')) return null;
+  const lower = sanitized.toLowerCase();
+  if (!TEMPLATE_IMAGE_EXTENSIONS.some(ext => lower.endsWith(ext))) return null;
+  return sanitized;
+}
+
 function setTemplateImages(list){
-  templateImages.length=0;
+  templateImages.length = 0;
   if (Array.isArray(list)){
-    list.forEach(name=>{
-      if (typeof name === 'string' && name.trim()) templateImages.push(name.trim());
+    const seen = new Set();
+    list.forEach(name => {
+      const normalized = normalizeTemplateImageName(name);
+      if (!normalized || seen.has(normalized)) return;
+      seen.add(normalized);
+      templateImages.push(normalized);
     });
   }
   refreshTemplateImageSelect();
+}
+
+async function fetchTemplateManifest(){
+  try{
+    const res = await fetch('template-images/templates.json', { cache:'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!Array.isArray(data)) return [];
+    return data;
+  }catch(err){
+    return [];
+  }
+}
+
+async function fetchTemplateDirectoryListing(){
+  try{
+    const res = await fetch('template-images/', { cache:'no-store' });
+    if (!res.ok) return [];
+    const text = await res.text();
+    const names = new Set();
+    if (typeof DOMParser === 'function'){
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+        doc.querySelectorAll('a[href]').forEach(a => {
+          const href = a.getAttribute('href');
+          if (!href) return;
+          const decoded = decodeURIComponent(href.split('?')[0]);
+          const normalized = normalizeTemplateImageName(decoded);
+          if (normalized) names.add(normalized);
+        });
+      } catch(_err){ /* noop */ }
+    }
+    if (!names.size){
+      const hrefRegex = /href\s*=\s*['"]([^'"]+)['"]/gi;
+      let match;
+      while ((match = hrefRegex.exec(text)) !== null){
+        const href = match[1];
+        if (!href) continue;
+        const decoded = decodeURIComponent(href.split('?')[0]);
+        const normalized = normalizeTemplateImageName(decoded);
+        if (normalized) names.add(normalized);
+      }
+    }
+    return Array.from(names);
+  }catch(err){
+    return [];
+  }
 }
 
 async function loadTemplateImageList(){
   setTemplateImages(DEFAULT_TEMPLATE_IMAGES);
   if (typeof fetch!=='function') return;
   try{
-    const res = await fetch('template-images/templates.json', { cache:'no-store' });
-    if (!res.ok) return;
-    const data = await res.json();
-    if (Array.isArray(data) && data.length){
-      setTemplateImages(data);
+    const manifestList = await fetchTemplateManifest();
+    if (manifestList.length){
+      setTemplateImages(manifestList);
+      return;
+    }
+    const directoryList = await fetchTemplateDirectoryListing();
+    if (directoryList.length){
+      setTemplateImages(directoryList);
     }
   }catch(err){
     console.warn('テンプレート画像リストの取得に失敗しました', err);
