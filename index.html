@@ -208,6 +208,7 @@ gap:6px; }
     <div class="section">
       <h2>画像・QR・既定スタンプ</h2>
       <label class="as-btn"><input id="bgInput" type="file" accept="image/*">背景画像を読み込む</label>
+      <label class="as-btn" style="margin-top:6px"><input id="imageInput" type="file" accept="image/*" multiple>画像を追加</label>
       <button id="qrBtn" class="full" title="URL/テキストを入力してQR配置">自由入力のQRを追加</button>
       <div class="row" style="margin-top:8px">
         <button id="implantBtn" class="full" title="インプラントスタンプ">インプラント</button>
@@ -1388,6 +1389,22 @@ document.getElementById('bgInput').addEventListener('change', (ev)=>{
     const w=Math.max(40, baseW*scale), h=Math.max(40, baseH*scale); const center=centerOfCanvas(); const pg=currentPage();
     pg.bg={ img, x:center.x-w/2, y:center.y-h/2, w, h, angle:0 }; selectedIdx=-1; bgSelected=true; redraw(); URL.revokeObjectURL(url); ev.target.value=''; };
   img.src = url;
+});
+document.getElementById('imageInput').addEventListener('change', (ev)=>{
+  const files = Array.from(ev.target.files || []); if (!files.length) return;
+  const center=centerOfCanvas(); const pg=currentPage();
+  files.forEach((file, idx)=>{
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload=()=>{ const baseW=img.naturalWidth||img.width||1; const baseH=img.naturalHeight||img.height||1; const r=canvas.getBoundingClientRect();
+      const maxW=r.width*0.6, maxH=r.height*0.6; let scale=Math.min(maxW/baseW, maxH/baseH); if (!Number.isFinite(scale)||scale<=0) scale=1; scale=Math.min(scale,1);
+      const w=Math.max(40, baseW*scale), h=Math.max(40, baseH*scale); const offset=idx*24;
+      pg.items.push({ type:'image', img, x:center.x-w/2+offset, y:center.y-h/2+offset, w, h, angle:0 });
+      selectedIdx=pg.items.length-1; bgSelected=false; redraw(); URL.revokeObjectURL(url);
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); };
+    img.src=url;
+  });
+  ev.target.value='';
 });
 document.getElementById('qrBtn').addEventListener('click', ()=>{ const data = prompt('QRにするURLまたはテキスト：', 'https://minami-dentalclinic.com'); if (!data) return; const size = 240; const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`; const img = new Image(); img.crossOrigin = 'anonymous'; img.onload = ()=>{ const initW=180, initH=180; const center = centerOfCanvas(); const pg = currentPage(); pg.items.push({ type:'qr', qrData:data, img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 }); selectedIdx = pg.items.length - 1; bgSelected=false; redraw(); }; img.onerror = ()=> alert('QR画像の取得に失敗しました。'); img.src = src; });
 document.getElementById('implantBtn').addEventListener('click', ()=>{ const img = makeImplantStamp(); const initW=180, initH=320; const center = centerOfCanvas(); const pg = currentPage(); pg.items.push({ type:'implant', img, x:center.x - initW/2, y:center.y - initH/2, w:initW, h:initH, angle:0 }); selectedIdx = pg.items.length - 1; bgSelected=false; redraw(); });
