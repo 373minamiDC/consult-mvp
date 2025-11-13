@@ -1072,12 +1072,20 @@ function endStroke(){
 /* ---- Touch Events：スタライス（タッチ扱い）を完全対応 ---- */
 function onTouchStart(e){
   if (e.cancelable) e.preventDefault();
-  if (tool!=='pen' && tool!=='hl' && tool!=='eraser') return; // 選択ツール中は描画しない
   if (!e.touches || e.touches.length===0) return;
   const t = e.touches[0];
+  const pt = getTouchPoint(t);
+  const L = screenToLogical(pt);
+  const hitItem = hitTestItem(L);
+  const bgHit = hitItem.idx>=0 ? { kind:'none', idx:-1 } : hitTestBackground(L);
+  if (hitItem.idx>=0 || bgHit.kind!=='none'){
+    if (tool!=='select') setTool('select');
+    return;
+  }
+  if (tool!=='pen' && tool!=='hl' && tool!=='eraser') return; // 選択ツール中は描画しない
   const width = tool==='pen' ? lineWidthPen : tool==='hl' ? lineWidthHL : eraserSize;
   const color = tool==='pen' ? penColor : undefined;
-  beginStroke(tool, color, width, getTouchPoint(t));
+  beginStroke(tool, color, width, pt);
 }
 function onTouchMove(e){
   if (!drawing) return;
@@ -1100,10 +1108,16 @@ canvas.addEventListener('pointerdown',(e)=>{
   if (e.cancelable) e.preventDefault();
   const pt=getEventPoint(e); pointers.set(e.pointerId, pt);
   const pg=currentPage();
+  const L=screenToLogical(pt);
+  let hit=hitTestItem(L);
+  let bgHit = hit.idx>=0 ? {kind:'none', idx:-1} : hitTestBackground(L);
+
+  if (tool!=='select' && (hit.idx>=0 || bgHit.kind!=='none')){
+    setTool('select');
+  }
 
   if (tool==='select'){
-    const L=screenToLogical(pt);
-    const hit=hitTestItem(L);
+    hit=hitTestItem(L);
     if (hit.idx>=0){
       selectedIdx=hit.idx; bgSelected=false;
       const it=pg.items[selectedIdx];
@@ -1115,7 +1129,7 @@ canvas.addEventListener('pointerdown',(e)=>{
         dragState={ target:'item', kind:'move', idx:selectedIdx, start:L, itemStart:{...it} };
       }
     } else {
-      const bgHit=hitTestBackground(L);
+      bgHit = hitTestBackground(L);
       if (bgHit.kind!=='none'){
         selectedIdx=-1; bgSelected=true;
         const bg=pg.bg;
