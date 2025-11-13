@@ -147,6 +147,7 @@ gap:6px; }
           <select id="loanMonthsSelect">
             <option value="6">6 回</option><option value="12">12 回</option><option value="18">18 回</option>
             <option value="24">24 回</option><option value="36">36 回</option><option value="48">48 回</option><option value="60">60 回</option>
+            <option value="72">72 回</option><option value="84">84 回</option><option value="96">96 回</option><option value="108">108 回</option><option value="120">120 回</option>
           </select>
           <div>月々約 <span id="estimateMonthlyDisplay">¥0</span></div>
         </div>
@@ -1495,7 +1496,7 @@ function ensureEstimateDataForPage(pg){
   if (est.rows.length === 0) est.rows.push(makeEstimateRow());
   for (let i=0;i<est.rows.length;i++) est.rows[i] = normalizeEstimateRow(est.rows[i]);
   const months = parseInt(est.loanMonths, 10);
-  est.loanMonths = Math.min(60, Math.max(1, Number.isFinite(months) ? months : 12));
+  est.loanMonths = Math.min(120, Math.max(1, Number.isFinite(months) ? months : 12));
   est.interestRate = Number.isFinite(est.interestRate) ? est.interestRate : ESTIMATE_INTEREST_RATE;
   return est;
 }
@@ -1520,7 +1521,7 @@ function serializeEstimate(est){
         note: normalized.note || ''
       };
     }),
-    loanMonths: Math.min(60, Math.max(1, parseInt(est.loanMonths, 10) || 12)),
+    loanMonths: Math.min(120, Math.max(1, parseInt(est.loanMonths, 10) || 12)),
     interestRate: Number.isFinite(est.interestRate) ? est.interestRate : ESTIMATE_INTEREST_RATE
   };
 }
@@ -1825,7 +1826,7 @@ if (loanMonthsSelectEl){
   loanMonthsSelectEl.addEventListener('change', ()=>{
     const pg = currentPage();
     if (!pg || pg.kind !== 'estimate') return;
-    const months = Math.min(60, Math.max(1, parseInt(loanMonthsSelectEl.value, 10) || 12));
+    const months = Math.min(120, Math.max(1, parseInt(loanMonthsSelectEl.value, 10) || 12));
     pg.estimate.loanMonths = months;
     loanMonthsSelectEl.value = String(months);
     refreshEstimateEditor();
@@ -1918,7 +1919,7 @@ async function restorePatientData(data){
         pg.bg = { img:bgImg, x:pgData.bg.x||0, y:pgData.bg.y||0, w:pgData.bg.w||bgImg.width, h:pgData.bg.h||bgImg.height, angle:pgData.bg.angle||0 };
       }catch{}
     }
-    if (kind==='estimate'){ const estData=pgData.estimate||{}; pg.estimate.rows = Array.isArray(estData.rows)&&estData.rows.length? estData.rows.map(r=>normalizeEstimateRow({...r})) : [makeEstimateRow()]; const loan=parseInt(estData.loanMonths,10); pg.estimate.loanMonths=Math.min(60,Math.max(1, Number.isFinite(loan)?loan:12)); const ir=Number(estData.interestRate); pg.estimate.interestRate=Number.isFinite(ir)?ir:ESTIMATE_INTEREST_RATE; }
+    if (kind==='estimate'){ const estData=pgData.estimate||{}; pg.estimate.rows = Array.isArray(estData.rows)&&estData.rows.length? estData.rows.map(r=>normalizeEstimateRow({...r})) : [makeEstimateRow()]; const loan=parseInt(estData.loanMonths,10); pg.estimate.loanMonths=Math.min(120,Math.max(1, Number.isFinite(loan)?loan:12)); const ir=Number(estData.interestRate); pg.estimate.interestRate=Number.isFinite(ir)?ir:ESTIMATE_INTEREST_RATE; }
     newPages.push(pg);
   }
   pages = newPages.length? newPages : [makeEmptyPage('blank')];
