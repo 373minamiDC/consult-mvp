@@ -1046,10 +1046,11 @@ let selectedIdx=-1; let bgSelected=false;
 /* ---- 即時ストローク（タッチ優先） ---- */
 let drawing=false; let current=null;
 
-const LONG_PRESS_DURATION = 2000;
+const LONG_PRESS_DURATION = 1000;
 const LONG_PRESS_MOVE_TOLERANCE = 18;
 let longPressTimer=null;
 let longPressInfo=null; // { source:'touch'|'pointer', identifier, startPt }
+let pendingStroke=null; // { source, identifier|pointerId, mode, color, width, startPt }
 
 function clearLongPressWatcher(){
   if (longPressTimer){
@@ -1123,17 +1124,39 @@ function onTouchStart(e){
   const bgHit = hitItem.idx>=0 ? { kind:'none', idx:-1 } : hitTestBackground(L);
   if (hitItem.idx>=0 || bgHit.kind!=='none'){
     if (tool!=='select'){
+      if (tool==='pen' || tool==='hl' || tool==='eraser'){
+        const width = tool==='pen' ? lineWidthPen : tool==='hl' ? lineWidthHL : eraserSize;
+        const color = tool==='pen' ? penColor : undefined;
+        pendingStroke={ source:'touch', identifier:t.identifier, mode:tool, color, width, startPt:pt };
+      }
       startLongPressWatcher({ source:'touch', identifier:t.identifier, startPt:pt });
     }
     return;
   }
   clearLongPressWatcher();
+  pendingStroke=null;
   if (tool!=='pen' && tool!=='hl' && tool!=='eraser') return; // 選択ツール中は描画しない
   const width = tool==='pen' ? lineWidthPen : tool==='hl' ? lineWidthHL : eraserSize;
   const color = tool==='pen' ? penColor : undefined;
   beginStroke(tool, color, width, pt);
 }
 function onTouchMove(e){
+  if (pendingStroke && pendingStroke.source==='touch'){
+    const touch = Array.from(e.touches||[]).find(tt=>tt.identifier===pendingStroke.identifier);
+    if (!touch){
+      pendingStroke=null;
+    } else if (!drawing){
+      const currentPt = getTouchPoint(touch);
+      const dx = currentPt.x - pendingStroke.startPt.x;
+      const dy = currentPt.y - pendingStroke.startPt.y;
+      if ((dx*dx + dy*dy) > (LONG_PRESS_MOVE_TOLERANCE * LONG_PRESS_MOVE_TOLERANCE)){
+        clearLongPressWatcher();
+        const { mode, color, width, startPt } = pendingStroke;
+        pendingStroke=null;
+        beginStroke(mode, color, width, startPt);
+      }
+    }
+  }
   if (longPressInfo && longPressInfo.source==='touch'){
     const touch = Array.from(e.touches||[]).find(tt=>tt.identifier===longPressInfo.identifier);
     if (touch){
@@ -1153,12 +1176,17 @@ function onTouchEnd(e){
     const ended = Array.from(e.changedTouches||[]).some(tt=>tt.identifier===longPressInfo.identifier);
     if (ended) clearLongPressWatcher();
   }
+  if (pendingStroke && pendingStroke.source==='touch'){
+    const ended = Array.from(e.changedTouches||[]).some(tt=>tt.identifier===pendingStroke.identifier);
+    if (ended) pendingStroke=null;
+  }
   if (e.touches && e.touches.length>0) return;
   if (drawing) endStroke();
 }
 function onTouchCancel(e){
   if (e.cancelable) e.preventDefault();
   clearLongPressWatcher();
+  pendingStroke=null;
   current=null; drawing=false; redraw();
 }
 
@@ -1180,11 +1208,17 @@ canvas.addEventListener('pointerdown',(e)=>{
       clearLongPressWatcher();
       setTool('select');
     } else {
+      if (tool==='pen' || tool==='hl' || tool==='eraser'){
+        const width = tool==='pen' ? lineWidthPen : tool==='hl' ? lineWidthHL : eraserSize;
+        const color = tool==='pen' ? penColor : undefined;
+        pendingStroke={ source:'pointer', pointerId:e.pointerId, mode:tool, color, width, startPt:pt };
+      }
       startLongPressWatcher({ source:'pointer', pointerId:e.pointerId, startPt:pt });
       return;
     }
   } else {
     clearLongPressWatcher();
+    pendingStroke=null;
   }
 
   if (tool==='select'){
@@ -1230,6 +1264,17 @@ canvas.addEventListener('pointerdown',(e)=>{
 
 canvas.addEventListener('pointermove',(e)=>{
   if (e.cancelable) e.preventDefault();
+  if (pendingStroke && pendingStroke.source==='pointer' && pendingStroke.pointerId===e.pointerId && !drawing){
+    const currentPt = getEventPoint(e);
+    const dx = currentPt.x - pendingStroke.startPt.x;
+    const dy = currentPt.y - pendingStroke.startPt.y;
+    if ((dx*dx + dy*dy) > (LONG_PRESS_MOVE_TOLERANCE * LONG_PRESS_MOVE_TOLERANCE)){
+      clearLongPressWatcher();
+      const { mode, color, width, startPt } = pendingStroke;
+      pendingStroke=null;
+      beginStroke(mode, color, width, startPt);
+    }
+  }
   if (longPressInfo && longPressInfo.source==='pointer' && longPressInfo.pointerId===e.pointerId){
     updateLongPressWatcherPosition(getEventPoint(e));
   }
@@ -1289,6 +1334,9 @@ canvas.addEventListener('pointerup',(e)=>{
   if (longPressInfo && longPressInfo.source==='pointer' && longPressInfo.pointerId===e.pointerId){
     clearLongPressWatcher();
   }
+  if (pendingStroke && pendingStroke.source==='pointer' && pendingStroke.pointerId===e.pointerId){
+    pendingStroke=null;
+  }
   dragState=null;
   if (drawing) endStroke();
 },{passive:false});
@@ -1297,6 +1345,9 @@ canvas.addEventListener('pointercancel',(e)=>{
   if (e.cancelable) e.preventDefault();
   if (longPressInfo && longPressInfo.source==='pointer' && longPressInfo.pointerId===e.pointerId){
     clearLongPressWatcher();
+  }
+  if (pendingStroke && pendingStroke.source==='pointer' && pendingStroke.pointerId===e.pointerId){
+    pendingStroke=null;
   }
   dragState=null; current=null; drawing=false; redraw();
 },{passive:false});
@@ -1375,6 +1426,7 @@ function updateToolUI(){
 }
 function setTool(next){
   clearLongPressWatcher();
+  pendingStroke=null;
   tool=next;
   if (tool!=='select'){ selectedIdx=-1; bgSelected=false; dragState=null; }
   updateToolUI();
