@@ -210,6 +210,9 @@ gap:6px; }
       <h2>画像・QR・既定スタンプ</h2>
       <label class="as-btn"><input id="bgInput" type="file" accept="image/*">背景画像を読み込む</label>
       <label class="as-btn" style="margin-top:6px"><input id="imageInput" type="file" accept="image/*" multiple>画像を追加</label>
+      <div class="row" style="margin-top:8px"><select id="templateImageSelect" class="full"></select></div>
+      <div class="row" style="margin-top:6px"><button id="placeTemplateImageBtn" class="full">テンプレ画像を配置</button></div>
+      <div class="muted">※ template-images フォルダのファイル名をプルダウンに表示します</div>
       <button id="qrBtn" class="full" title="URL/テキストを入力してQR配置">自由入力のQRを追加</button>
       <div class="row" style="margin-top:8px">
         <button id="implantBtn" class="full" title="インプラントスタンプ">インプラント</button>
@@ -266,6 +269,20 @@ const deleteSelectionBtn = document.getElementById('deleteSelectionBtn');
 const eraserSizeRowEl = document.getElementById('eraserSizeRow');
 const eraserSizeSelectEl = document.getElementById('eraserSize');
 const addTextBtn = document.getElementById('addTextBtn');
+const templateImageSelectEl = document.getElementById('templateImageSelect');
+const placeTemplateImageBtn = document.getElementById('placeTemplateImageBtn');
+
+const DEFAULT_TEMPLATE_IMAGES = [
+  'caries_periodontal.svg',
+  'bridge_implant_denture.svg',
+  'bridge_closeup.svg',
+  'cad_cam_peek.svg',
+  'cavity_preparation.svg',
+  'ceramic_teeth.svg',
+  'emax_press.svg',
+  'full_denture.svg'
+];
+const templateImages = [];
 
 const measureCanvas = document.createElement('canvas');
 const measureCtx = measureCanvas.getContext('2d');
@@ -1529,6 +1546,86 @@ document.getElementById('deletePageBtn').onclick=()=>{ if (pages.length===1){ al
 /* ========================= 背景・QR・スタンプ ========================= */
 function centerOfCanvas(){ const r=canvas.getBoundingClientRect(); return {x:r.width/2, y:r.height/2}; }
 function centerOfCanvasLogical(){ return screenToLogical(centerOfCanvas()); }
+
+function refreshTemplateImageSelect(){
+  if (!templateImageSelectEl) return;
+  templateImageSelectEl.innerHTML = '';
+  if (!templateImages.length){
+    const opt=document.createElement('option');
+    opt.value='';
+    opt.textContent='テンプレート画像がありません';
+    templateImageSelectEl.appendChild(opt);
+    templateImageSelectEl.value='';
+    templateImageSelectEl.disabled=true;
+  } else {
+    templateImages.forEach((name, idx)=>{
+      const opt=document.createElement('option');
+      opt.value=String(idx);
+      opt.textContent=name;
+      templateImageSelectEl.appendChild(opt);
+    });
+    templateImageSelectEl.disabled=false;
+    templateImageSelectEl.value='0';
+  }
+  if (placeTemplateImageBtn){ placeTemplateImageBtn.disabled = templateImages.length===0; }
+}
+
+function setTemplateImages(list){
+  templateImages.length=0;
+  if (Array.isArray(list)){
+    list.forEach(name=>{
+      if (typeof name === 'string' && name.trim()) templateImages.push(name.trim());
+    });
+  }
+  refreshTemplateImageSelect();
+}
+
+async function loadTemplateImageList(){
+  setTemplateImages(DEFAULT_TEMPLATE_IMAGES);
+  if (typeof fetch!=='function') return;
+  try{
+    const res = await fetch('template-images/templates.json', { cache:'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (Array.isArray(data) && data.length){
+      setTemplateImages(data);
+    }
+  }catch(err){
+    console.warn('テンプレート画像リストの取得に失敗しました', err);
+  }
+}
+
+if (placeTemplateImageBtn){
+  placeTemplateImageBtn.addEventListener('click', ()=>{
+    if (!templateImages.length){ alert('テンプレート画像がありません'); return; }
+    if (!templateImageSelectEl){ alert('画像を選択してください'); return; }
+    const idx = parseInt(templateImageSelectEl.value, 10);
+    const filename = templateImages[idx];
+    if (!filename){ alert('画像を選択してください'); return; }
+    const img = new Image();
+    img.onload=()=>{
+      const baseW = img.naturalWidth || img.width || 1;
+      const baseH = img.naturalHeight || img.height || 1;
+      const r = canvas.getBoundingClientRect();
+      const maxW = r.width * 0.6;
+      const maxH = r.height * 0.6;
+      let scale = Math.min(maxW / baseW, maxH / baseH);
+      if (!Number.isFinite(scale) || scale <= 0) scale = 1;
+      scale = Math.min(scale, 1);
+      const w = Math.max(40, baseW * scale);
+      const h = Math.max(40, baseH * scale);
+      const center = centerOfCanvas();
+      const pg = currentPage();
+      pg.items.push({ type:'template-image', templateName:filename, img, x:center.x - w/2, y:center.y - h/2, w, h, angle:0 });
+      selectedIdx = pg.items.length - 1;
+      bgSelected = false;
+      redraw();
+    };
+    img.onerror=()=> alert('テンプレート画像の読み込みに失敗しました。');
+    img.src = `template-images/${encodeURIComponent(filename)}`;
+  });
+}
+
 document.getElementById('bgInput').addEventListener('change', (ev)=>{
   const file = ev.target.files?.[0]; if (!file) return;
   const url = URL.createObjectURL(file); const img = new Image();
@@ -2009,7 +2106,9 @@ async function serializePatientData(){
       if (!it || !it.img) continue;
       const imageData=imageToDataURL(it.img);
       if (!imageData){ missingImages=true; continue; }
-      items.push({ type:it.type, x:it.x, y:it.y, w:it.w, h:it.h, angle:it.angle||0, imageData, qrData: it.type==='qr' ? it.qrData: undefined });
+      const savedItem = { type:it.type, x:it.x, y:it.y, w:it.w, h:it.h, angle:it.angle||0, imageData, qrData: it.type==='qr' ? it.qrData: undefined };
+      if (it.templateName) savedItem.templateName = it.templateName;
+      items.push(savedItem);
     }
     let bg=null; if (pg.bg){ const imageData=imageToDataURL(pg.bg.img); if (!imageData) missingImages=true;
       bg={ x:pg.bg.x, y:pg.bg.y, w:pg.bg.w, h:pg.bg.h, angle:pg.bg.angle||0, imageData }; }
@@ -2057,6 +2156,7 @@ async function restorePatientData(data){
           const restored = { type:item.type||'qr', img, x:typeof item.x==='number'?item.x:0, y:typeof item.y==='number'?item.y:0,
             w:typeof item.w==='number'?item.w:(img.naturalWidth||img.width), h:typeof item.h==='number'?item.h:(img.naturalHeight||img.height), angle:typeof item.angle==='number'?item.angle:0 };
           if (restored.type==='qr' && item.qrData) restored.qrData=item.qrData;
+          if (item.templateName) restored.templateName = item.templateName;
           pg.items.push(restored);
         }catch{}
       }
@@ -2153,7 +2253,7 @@ document.getElementById('addPresetBtn').onclick=()=>{
 };
 
 /* ========================= 初期化 ========================= */
-function init(){ refreshPresetSelect(); setCanvasSize(); refreshEstimateEditor(); updatePageIndicator(); }
+function init(){ refreshPresetSelect(); loadTemplateImageList(); setCanvasSize(); refreshEstimateEditor(); updatePageIndicator(); }
 init();
 </script>
 </body>
