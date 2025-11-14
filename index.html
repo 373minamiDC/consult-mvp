@@ -1834,13 +1834,8 @@ function makeCircleStamp(){
     const cx = w/2;
     const cy = h/2;
     const radius = Math.min(w, h)/2 - 12;
-    const grad = g.createRadialGradient(cx - radius*0.3, cy - radius*0.3, radius*0.2, cx, cy, radius);
-    grad.addColorStop(0, '#fef9c3');
-    grad.addColorStop(1, '#fcd34d');
-    g.fillStyle = grad;
     g.beginPath();
     g.arc(cx, cy, radius, 0, Math.PI*2);
-    g.fill();
     g.lineWidth = 3;
     g.strokeStyle = '#f59e0b';
     g.stroke();
@@ -1884,7 +1879,6 @@ function makeSquareStamp(){
 function makeTriangleStamp(){
   const w = 240, h = 210;
   return makeStampImage(w, h, (g)=>{
-    g.fillStyle = '#fcd5ce';
     g.strokeStyle = '#f08080';
     g.lineWidth = 3;
     g.beginPath();
@@ -1892,15 +1886,7 @@ function makeTriangleStamp(){
     g.lineTo(w - 36, h - 46);
     g.lineTo(36, h - 46);
     g.closePath();
-    g.fill();
     g.stroke();
-    g.fillStyle = 'rgba(255,255,255,0.4)';
-    g.beginPath();
-    g.moveTo(w/2, 50);
-    g.lineTo(w - 62, h - 70);
-    g.lineTo(62, h - 70);
-    g.closePath();
-    g.fill();
     g.fillStyle = 'rgba(0,0,0,0.05)';
     g.beginPath();
     g.ellipse(w/2, h - 18, 78, 11, 0, 0, Math.PI*2);
