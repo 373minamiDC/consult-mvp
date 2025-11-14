@@ -1206,18 +1206,37 @@ function worldPtFromEvent(e){ return screenToLogical(getEventPoint(e)); }
 canvas.addEventListener('pointerdown',(e)=>{
   if (e.cancelable) e.preventDefault();
   const pt=getEventPoint(e); pointers.set(e.pointerId, pt);
+  const pointerType = e.pointerType || '';
   const pg=currentPage();
   const L=screenToLogical(pt);
   let hit=hitTestItem(L);
   let bgHit = hit.idx>=0 ? {kind:'none', idx:-1} : hitTestBackground(L);
+  const isDrawingTool = (tool==='pen' || tool==='hl' || tool==='eraser');
+  const wantsMouseSelect = (pointerType==='mouse' && e.shiftKey);
+  let startedDrawing=false;
+
+  if (wantsMouseSelect && tool!=='select'){
+    clearLongPressWatcher();
+    pendingStroke=null;
+    setTool('select');
+  }
 
   if (tool!=='select' && (hit.idx>=0 || bgHit.kind!=='none')){
-    const pointerType = e.pointerType || '';
     if (pointerType==='mouse'){
-      clearLongPressWatcher();
-      setTool('select');
+      if (isDrawingTool && !e.shiftKey){
+        clearLongPressWatcher();
+        pendingStroke=null;
+        const width = tool==='pen' ? lineWidthPen : tool==='hl' ? lineWidthHL : eraserSize;
+        const color = tool==='pen' ? penColor : undefined;
+        beginStroke(tool, color, width, pt);
+        startedDrawing=true;
+      } else {
+        clearLongPressWatcher();
+        pendingStroke=null;
+        setTool('select');
+      }
     } else {
-      if (tool==='pen' || tool==='hl' || tool==='eraser'){
+      if (isDrawingTool){
         const width = tool==='pen' ? lineWidthPen : tool==='hl' ? lineWidthHL : eraserSize;
         const color = tool==='pen' ? penColor : undefined;
         pendingStroke={ source:'pointer', pointerId:e.pointerId, mode:tool, color, width, startPt:pt };
@@ -1264,7 +1283,7 @@ canvas.addEventListener('pointerdown',(e)=>{
   }
 
   // ペン/蛍光をPointerでも使いたい人向け（マウスや純正ペンでも可）
-  if (tool==='pen' || tool==='hl' || tool==='eraser'){
+  if (!startedDrawing && (tool==='pen' || tool==='hl' || tool==='eraser')){
     const width = tool==='pen' ? lineWidthPen : tool==='hl' ? lineWidthHL : eraserSize;
     const color = tool==='pen' ? penColor : undefined;
     beginStroke(tool, color, width, pt);
