@@ -1849,7 +1849,6 @@ function makeCircleStamp(){
 function makeSquareStamp(){
   const w = 220, h = 200;
   return makeStampImage(w, h, (g)=>{
-    g.fillStyle = '#bfdbfe';
     g.strokeStyle = '#60a5fa';
     g.lineWidth = 3;
     g.beginPath();
@@ -1858,17 +1857,7 @@ function makeSquareStamp(){
     } else {
       g.rect(24, 24, w - 48, h - 48);
     }
-    g.fill();
     g.stroke();
-    g.fillStyle = 'rgba(255,255,255,0.35)';
-    g.beginPath();
-    g.moveTo(48, 40);
-    g.lineTo(w - 52, 40);
-    g.quadraticCurveTo(w - 36, 84, w - 80, 92);
-    g.quadraticCurveTo(w/2, 120, 80, 136);
-    g.quadraticCurveTo(44, 120, 48, 88);
-    g.closePath();
-    g.fill();
     g.fillStyle = 'rgba(0,0,0,0.05)';
     g.beginPath();
     g.ellipse(w/2, h - 10, 70, 10, 0, 0, Math.PI*2);
